@@ -8,11 +8,11 @@
 	"license": "MIT",
 	"sourcePaths": [
 		"source",
-		"../source"
+		"../util"
 	],
 	"importPaths": [
 		"source",
-		"../source"
+		"../util"
 	],
 	"configurations": [
 		{
