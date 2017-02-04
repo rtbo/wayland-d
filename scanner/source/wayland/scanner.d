@@ -60,7 +60,7 @@ import std.algorithm;
 import std.conv;
 import std.uni : toUpper, isWhite;
 
-enum scannerVersion = "v2.0.0";
+enum scannerVersion = "v0.0.1";
 
 enum GenCode
 {
