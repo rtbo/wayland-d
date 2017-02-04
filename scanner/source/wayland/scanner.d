@@ -18,14 +18,26 @@ int main(string[] args)
 
     if (optHandler.helpWanted)
     {
-        defaultGetoptPrinter("A Wayland protocol scanner and D code generator",
-                optHandler.options);
+        defaultGetoptFormatter (
+            stdout.lockingTextWriter,
+            "wayland-d:scanner "~scannerVersion~"\n"~
+            "  A Wayland protocol scanner and D code generator.\n\n" ~
+            "Options:",
+            optHandler.options
+        );
         return 0;
     }
 
     if (opt.moduleName.empty)
     {
-        stderr.writeln("D module name must be supplied with --module or -m");
+        defaultGetoptFormatter (
+            stderr.lockingTextWriter,
+            "wayland-d:scanner "~scannerVersion~"\n"~
+            "  A Wayland protocol scanner and D code generator.\n\n" ~
+            "Error: D module name must be supplied with '--module' or '-m'\n\n" ~
+            "Options:",
+            optHandler.options
+        );
         return 1;
     }
 
