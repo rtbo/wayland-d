@@ -245,7 +245,6 @@ class Arg
         }
         return name;
     }
-
 }
 
 
@@ -279,8 +278,6 @@ class Message
     {
         return ifaceName.toUpper ~ "_" ~ name.toUpper;
     }
-
-
 }
 
 
@@ -313,7 +310,6 @@ class Interface
         }
     }
 
-
     @property bool haveListener() const
     {
         return !events.empty;
@@ -323,8 +319,6 @@ class Interface
     {
         return !requests.empty;
     }
-
-
 }
 
 
