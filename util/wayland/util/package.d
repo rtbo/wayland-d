@@ -1,5 +1,31 @@
 module wayland.util;
 
+import wayland.native.util;
+
+/// Implemented by type that wrap a native wayland struct pointer.
+interface Native(wl_native)
+{
+    /// Access the wrapped struct.
+    @property wl_native* native();
+}
+
+/// Utility mixin that implements Native for a type.
+mixin template nativeImpl(wl_native)
+{
+    private wl_native* _native;
+
+    public final override @property wl_native* native()
+    {
+        return _native;
+    }
+}
+
+
+class WlInterface : Native!wl_interface
+{
+    mixin nativeImpl!wl_interface;
+}
+
 
 /**
  * Fixed-point number
@@ -26,7 +52,7 @@ struct WlFixed
     */
     public static WlFixed create(in int val)
     {
-        return WlFixed(i * 256);
+        return WlFixed(val * 256);
     }
 
     /**
@@ -35,7 +61,7 @@ struct WlFixed
     public static WlFixed create(in double val)
     {
         DI u;
-        u.d = d + (3L << (51 - 8));
+        u.d = val + (3L << (51 - 8));
         return WlFixed(cast(uint)(u.i));
     }
 
@@ -62,3 +88,4 @@ struct WlFixed
         return u.d - (3L << 43);
     }
 }
+

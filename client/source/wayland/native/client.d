@@ -119,7 +119,7 @@ extern(C) nothrow @nogc
     alias void_func_t = void function();
 }
 
-import wayland.c.util;
+import wayland.native.util;
 
 version (WlDynamic)
 {
