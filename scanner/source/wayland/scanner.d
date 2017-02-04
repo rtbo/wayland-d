@@ -1,3 +1,8 @@
+// Copyright © 2017 Rémi Thebault
+/++
+ +  Wayland scanner for D.
+ +  Scan wayland XML protocol and generates client or server code for that protocol.
+ +/
 module wayland.scanner;
 
 import std.stdio;
@@ -41,6 +46,9 @@ int main(string[] args)
         return 1;
     }
 
+    import std.exception : enforce;
+    enforce(opt.code == GenCode.client, "Only client generator is implemented at this time");
+
     try
     {
         File input = (opt.inFile.empty) ? stdin : File(opt.inFile, "r");
@@ -54,6 +62,7 @@ int main(string[] args)
         auto xmlDoc = new Document;
         xmlDoc.parse(xmlStr, true, true);
         auto p = new Protocol(xmlDoc.root);
+        p.printClientCode(output);
     }
     catch(Exception ex)
     {
@@ -70,9 +79,10 @@ import arsd.dom;
 
 import std.algorithm;
 import std.conv;
-import std.uni : toUpper, isWhite;
+import std.uni;
 
 enum scannerVersion = "v0.0.1";
+enum bindingsCopyright = "Copyright © 2017 Rémi Thebault";
 
 enum GenCode
 {
@@ -96,7 +106,6 @@ enum ArgType
 {
     Int, UInt, Fixed, String, Object, NewId, Array, Fd
 }
-
 
 
 class Description
@@ -356,14 +365,34 @@ class Protocol
         }
     }
 
+    void printHeader(File output)
+    {
+        printDocComment(output,
+            "File generated automatically with wayland-d:scanner "~scannerVersion~
+            ".\nDo not edit!");
+        printDocComment(output,
+            "Protocol copyright:\n\n" ~ copyright
+        );
+        printDocComment(output,
+            "Bindings copyright:\n\n" ~
+            bindingsCopyright
+        );
+    }
+
+    void printClientCode(File output)
+    {
+        printHeader(output);
+    }
 }
 
 
 string getElText(Element el)
 {
     string fulltxt;
-    foreach (child; el.children) {
-        if (child.nodeType == NodeType.Text) {
+    foreach (child; el.children)
+    {
+        if (child.nodeType == NodeType.Text)
+        {
             fulltxt ~= child.nodeValue;
         }
     }
@@ -371,18 +400,21 @@ string getElText(Element el)
     string[] lines;
     string offset;
     bool offsetdone = false;
-    foreach (l; fulltxt.split('\n')) {
+    foreach (l; fulltxt.split('\n'))
+    {
         immutable bool allwhite = l.all!isWhite;
         if (!offsetdone && allwhite) continue;
 
-        if (!offsetdone && !allwhite) {
+        if (!offsetdone && !allwhite)
+        {
             offsetdone = true;
             offset = l
                     .until!(c => !c.isWhite)
                     .to!string;
         }
 
-        if (l.startsWith(offset)) {
+        if (l.startsWith(offset))
+        {
             l = l[offset.length .. $];
         }
 
@@ -400,3 +432,114 @@ string getElText(Element el)
 }
 
 
+void printComment(File output, string text, int indent=0)
+{
+    auto indStr = indentStr(indent);
+    output.writeln(indStr, "/+");
+    foreach (l; text.split("\n")) {
+        if (l.empty) output.writeln(indStr, " +");
+        else output.writeln(indStr, " +  ", l);
+    }
+    output.writeln(indStr, " +/");
+}
+
+
+void printDocComment(File output, string text, int indent=0)
+{
+    auto indStr = indentStr(indent);
+    output.writeln(indStr, "/++");
+    foreach (l; text.split("\n")) {
+        if (l.empty) output.writeln(indStr, " +");
+        else output.writeln(indStr, " +  ", l);
+    }
+    output.writeln(indStr, " +/");
+}
+
+/// Build a camel name from components
+string buildCamelName(in string comp, in bool tit)
+{
+    string name;
+    bool cap = tit;
+    foreach(char c; comp.toLower())
+    {
+        if (c != '_')
+        {
+            name ~= cap ? c.toUpper() : c;
+            cap = false;
+        }
+        else
+        {
+            cap = true;
+        }
+    }
+    return name;
+}
+
+string camelName(in string comp)
+{
+    return buildCamelName(comp, false);
+}
+
+string titleCamelName(in string comp)
+{
+    return buildCamelName(comp, true);
+}
+
+string camelName(in string[] comps...)
+{
+    string name = buildCamelName(comps[0], false);
+    foreach (c; comps[1 .. $])
+    {
+        name ~= buildCamelName(c, true);
+    }
+    return name;
+}
+
+string titleCamelName(in string[] comps...)
+{
+    string name = buildCamelName(comps[0], true);
+    foreach (c; comps[1 .. $])
+    {
+        name ~= buildCamelName(c, true);
+    }
+    return name;
+}
+
+/++
+ + prints indented code and adds a final '\n'
+ +/
+void printCode(File output, string code, int indent=0)
+{
+    auto iStr = indentStr(indent);
+    foreach (l; code.split("\n")) {
+        if (l.empty) output.writeln();
+        else output.writeln(iStr, l);
+    }
+}
+
+string indentStr(int indent)
+{
+    return "    ".replicate(indent);
+}
+
+string splitLinesForWidth(string input, in string suffix, in string indent, in size_t width=80)
+{
+    string res;
+    size_t w;
+    foreach(i, word; input.split(" "))
+    {
+        if (i != 0)
+        {
+            string spacer = " ";
+            if (w + word.length + suffix.length >= width)
+            {
+                spacer = suffix ~ "\n" ~ indent;
+                w = indent.length;
+            }
+            res ~= spacer;
+        }
+        res ~= word;
+        w += word.length;
+    }
+    return res;
+}
