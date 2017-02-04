@@ -1,0 +1,15 @@
+{
+	"name": "wayland-d",
+	"targetType": "none",
+	"authors": [
+		"Rémi Thebault"
+	],
+	"description": "Wayland bindings for D",
+	"copyright": "Copyright © 2017, Rémi Thebault",
+	"license": "MIT",
+	"subPackages": [
+		"./scanner/",
+		"./client/",
+		"./server/"
+	]
+}

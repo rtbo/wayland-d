@@ -1,0 +1,28 @@
+{
+	"name": "server",
+	"authors": [
+		"Rémi Thebault"
+	],
+	"description": "D bindings to wayland-server",
+	"copyright": "Copyright © 2017, Rémi Thebault",
+	"license": "MIT",
+	"sourcePaths": [
+		"source",
+		"../source"
+	],
+	"importPaths": [
+		"source",
+		"../source"
+	],
+	"configurations": [
+		{
+			"name": "static",
+			"versions": ["WlStatic"],
+			"libs": ["wayland-server"]
+		},
+		{
+			"name": "dynamic",
+			"versions": ["WlDynamic"]
+		}
+	]
+}

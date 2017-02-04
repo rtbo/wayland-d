@@ -1,0 +1,31 @@
+{
+	"name": "client",
+	"authors": [
+		"Rémi Thebault"
+	],
+	"description": "D bindings to wayland-client",
+	"copyright": "Copyright © 2017, Rémi Thebault",
+	"license": "MIT",
+	"dependencies": {
+		"wayland-d": { "path": ".." }
+	},
+	"sourcePaths": [
+		"source",
+		"../source"
+	],
+	"importPaths": [
+		"source",
+		"../source"
+	],
+	"configurations": [
+		{
+			"name": "static",
+			"versions": ["WlStatic"],
+			"libs": ["wayland-client"]
+		},
+		{
+			"name": "dynamic",
+			"versions": ["WlDynamic"]
+		}
+	]
+}
