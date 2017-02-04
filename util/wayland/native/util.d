@@ -1,6 +1,6 @@
 // Copyright (c) Rémi Thebault
 /// bindings to wayland-util.h
-module wayland.c.util;
+module wayland.native.util;
 
 // Wayland util copyright:
 /*

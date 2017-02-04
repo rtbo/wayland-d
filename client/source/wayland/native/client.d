@@ -1,6 +1,6 @@
 // Copyright (c) Rémi Thebault
 /// bindings to wayland-client-core.h
-module wayland.c.client;
+module wayland.native.client;
 
 // Wayland client-core copyright:
 /*
