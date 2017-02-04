@@ -1,5 +1,6 @@
 {
 	"name": "scanner",
+	"targetType": "executable",
 	"authors": [
 		"Rémi Thebault"
 	],
