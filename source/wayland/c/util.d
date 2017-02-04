@@ -693,7 +693,9 @@ enum wl_iterator_result
 
 
 version(WlDynamic)
-{}
+{
+    static assert(false, "WlDynamic version is not implemented");
+}
 
 version(WlStatic)
 {

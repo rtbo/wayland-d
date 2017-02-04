@@ -123,6 +123,7 @@ import wayland.c.util;
 
 version (WlDynamic)
 {
+    static assert(false, "WlDynamic version is not implemented");
 }
 
 version (WlStatic)
