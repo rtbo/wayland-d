@@ -4,17 +4,52 @@ import std.stdio;
 import std.getopt;
 import std.array;
 
-void main(string[] args)
+int main(string[] args)
 {
     auto opt = new Options;
     opt.cmdLine = args.join(" ");
-    auto opt_handler = getopt(
+    auto optHandler = getopt (
         args,
         "code|c",   "generated code: client|server [client]", &opt.code,
         "input|i",  "input file [stdin]", &opt.inFile,
         "output|o", "output file [stdout]", &opt.outFile,
         "module|m", "D module name (required)", &opt.moduleName,
     );
+
+    if (optHandler.helpWanted)
+    {
+        defaultGetoptPrinter("A Wayland protocol scanner and D code generator",
+                optHandler.options);
+        return 0;
+    }
+
+    if (opt.moduleName.empty)
+    {
+        stderr.writeln("D module name must be supplied with --module or -m");
+        return 1;
+    }
+
+    try
+    {
+        File input = (opt.inFile.empty) ? stdin : File(opt.inFile, "r");
+        File output = (opt.outFile.empty) ? stdout : File(opt.outFile, "w");
+
+        string xmlStr;
+        foreach (string l; lines(input))
+        {
+            xmlStr ~= l;
+        }
+        auto xmlDoc = new Document;
+        xmlDoc.parse(xmlStr, true, true);
+        auto p = new Protocol(xmlDoc.root);
+    }
+    catch(Exception ex)
+    {
+        stderr.writeln("Error: "~ex.msg);
+        return 1;
+    }
+
+    return 0;
 }
 
 private:
@@ -57,15 +92,18 @@ class Description
     string summary;
     string text;
 
-    this (Element parentEl) {
-        foreach (el; parentEl.getElementsByTagName("description")) {
+    this (Element parentEl)
+    {
+        foreach (el; parentEl.getElementsByTagName("description"))
+        {
             summary = el.getAttribute("summary");
             text = el.getElText();
             break;
         }
     }
 
-    bool opCast(T)() const if (is(T == bool)) {
+    bool opCast(T)() const if (is(T == bool))
+    {
         return !summary.empty || !text.empty;
     }
 }
@@ -108,16 +146,19 @@ class Enum
         name = el.getAttribute("name");
         this.ifaceName = ifaceName;
         description = new Description(el);
-        foreach (entryEl; el.getElementsByTagName("entry")) {
+        foreach (entryEl; el.getElementsByTagName("entry"))
+        {
             entries ~= new EnumEntry(entryEl, ifaceName, name);
         }
     }
 
-    @property dName() const {
+    @property dName() const
+    {
         return ifaceName ~ "_" ~ name;
     }
 
-    bool entriesHaveDoc() const {
+    bool entriesHaveDoc() const
+    {
         return entries.any!(e => !e.summary.empty);
     }
 
@@ -194,10 +235,12 @@ class Arg
 
     @property string dName() const
     {
-        if (name == "interface") {
+        if (name == "interface")
+        {
             return "iface";
         }
-        else if (name == "version") {
+        else if (name == "version")
+        {
             return "ver";
         }
         return name;
@@ -220,17 +263,20 @@ class Message
         assert(el.tagName == "request" || el.tagName == "event");
         name = el.getAttribute("name");
         this.ifaceName = ifaceName;
-        if (el.hasAttribute("since")) {
+        if (el.hasAttribute("since"))
+        {
             since = el.getAttribute("since").to!int;
         }
         isDtor = (el.getAttribute("type") == "destructor");
         description = new Description(el);
-        foreach (argEl; el.getElementsByTagName("arg")) {
+        foreach (argEl; el.getElementsByTagName("arg"))
+        {
             args ~= new Arg(argEl);
         }
     }
 
-    @property string opCodeSym() const {
+    @property string opCodeSym() const
+    {
         return ifaceName.toUpper ~ "_" ~ name.toUpper;
     }
 
@@ -247,28 +293,34 @@ class Interface
     Message[] events;
     Enum[] enums;
 
-    this (Element el) {
+    this (Element el)
+    {
         assert(el.tagName == "interface");
         name = el.getAttribute("name");
         ver = el.getAttribute("version");
         description = new Description(el);
-        foreach (rqEl; el.getElementsByTagName("request")) {
+        foreach (rqEl; el.getElementsByTagName("request"))
+        {
             requests ~= new Message(rqEl, name);
         }
-        foreach (evEl; el.getElementsByTagName("event")) {
+        foreach (evEl; el.getElementsByTagName("event"))
+        {
             events ~= new Message(evEl, name);
         }
-        foreach (enEl; el.getElementsByTagName("enum")) {
+        foreach (enEl; el.getElementsByTagName("enum"))
+        {
             enums ~= new Enum(enEl, name);
         }
     }
 
 
-    @property bool haveListener() const {
+    @property bool haveListener() const
+    {
         return !events.empty;
     }
 
-    @property bool haveInterface() const {
+    @property bool haveInterface() const
+    {
         return !requests.empty;
     }
 
@@ -282,14 +334,18 @@ class Protocol
     string copyright;
     Interface[] ifaces;
 
-    this(Element el) {
-        assert(el.tagName == "protocol");
+    this(Element el)
+    {
+        import std.exception : enforce;
+        enforce(el.tagName == "protocol");
         name = el.getAttribute("name");
-        foreach (cr; el.getElementsByTagName("copyright")) {
+        foreach (cr; el.getElementsByTagName("copyright"))
+        {
             copyright = cr.getElText();
             break;
         }
-        foreach (ifEl; el.getElementsByTagName("interface")) {
+        foreach (ifEl; el.getElementsByTagName("interface"))
+        {
             ifaces ~= new Interface(ifEl);
         }
     }
