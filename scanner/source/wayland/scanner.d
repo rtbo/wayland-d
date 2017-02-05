@@ -191,7 +191,7 @@ class Enum
 
     @property dName() const
     {
-        return titleCamelName(ifaceName, name);
+        return titleCamelName(name);
     }
 
     bool entriesHaveDoc() const
@@ -319,10 +319,31 @@ class Interface
 
     void printClientCode(File output, int indent)
     {
+        description.printClientCode(output, indent);
+        if (name == "wl_display")
+        {
+            printCode(output, indent, "class WlDisplay : WlDisplayBase");
+            printCode(output, indent, "{");
+            printCode(output, indent+1, "static WlDisplay connect(in string display)");
+            printCode(output, indent+1, "{");
+            printCode(output, indent+2, "return null;");
+            printCode(output, indent+1, "}");
+            printCode(output, indent+1, "static WlDisplay connectToFd(in int fd)");
+            printCode(output, indent+1, "{");
+            printCode(output, indent+2, "return null;");
+            printCode(output, indent+1, "}");
+        }
+        else
+        {
+            printCode(output, indent, "class %s", titleCamelName(name));
+            printCode(output, indent, "{");
+        }
         foreach (en; enums)
         {
-            en.printClientCode(output, indent);
+            en.printClientCode(output, indent+1);
         }
+
+        printCode(output, indent, "}");
     }
 }
 
