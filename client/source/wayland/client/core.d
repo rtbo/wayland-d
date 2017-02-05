@@ -15,7 +15,7 @@ class WlEventQueue : Native!wl_event_queue
 }
 
 
-class WlDisplayBase : WlProxy, Native!wl_display
+abstract class WlDisplayBase : WlProxy, Native!wl_display
 {
     protected this(wl_display* native)
     {
@@ -120,7 +120,7 @@ class WlDisplayBase : WlProxy, Native!wl_display
 }
 
 
-class WlProxy
+abstract class WlProxy
 {
     private wl_proxy* _proxy;
 
@@ -133,4 +133,6 @@ class WlProxy
     {
         return _proxy;
     }
+
+    abstract @property uint version_();
 }

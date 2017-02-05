@@ -339,59 +339,53 @@ class Interface : ClientCodeGen, ClientPrivCodeGen
 
     void printVersionCode(SourceFile sf)
     {
-
+        sf.write("override @property uint version_()");
+        sf.writeBlock!({
+            sf.write("return wl_proxy_get_version(proxy);");
+        });
     }
 
     override void writeClientCode(SourceFile sf)
     {
         description.writeClientCode(sf);
-        if (name == "wl_display")
+
+        sf.write("class %s : %s", dName,
+            name == "wl_display" ?
+                "WlDisplayBase" :
+                "WlProxy");
+        sf.writeBlock!(
         {
-            sf.write("class WlDisplay : WlDisplayBase");
-            sf.write("{");
-            sf.indent();
-            sf.write("import wayland.native.client : wl_display;");
-            sf.write("package(wayland) this(wl_display* native)");
+            sf.write("/// Build a %s from a native object.", dName);
+            sf.write(name == "wl_display" ?
+                "package(wayland) this(wl_display* native)" :
+                "private this(wl_proxy* native)"
+            );
             sf.writeBlock!({
                 sf.write("super(native);");
             });
-        }
-        else
-        {
-            sf.write("class %s : Native!%s", dName, name);
-            sf.write("{");
-            sf.indent();
-            sf.write("mixin nativeImpl!%s;", name);
-            sf.write("this(%s* native)", name);
-            sf.writeBlock!({
-                sf.write("_native = native;");
-            });
-        }
-        foreach (en; enums)
-        {
-            en.writeClientCode(sf);
-        }
 
+            printVersionCode(sf);
 
+            foreach (en; enums)
+            {
+                en.writeClientCode(sf);
+            }
 
-        if (events.length)
-        {
-            sf.write("/// interface listening to events issued from a %s", dName);
-            sf.write("interface Listener");
-            sf.writeBlock!({
-                foreach (ev; events)
-                {
-                }
-            });
-        }
-
-        sf.unindent();
-        sf.write("}");
+            if (events.length)
+            {
+                sf.write("/// interface listening to events issued from a %s", dName);
+                sf.write("interface Listener");
+                sf.writeBlock!({
+                    foreach (ev; events)
+                    {
+                    }
+                });
+            }
+        });
     }
 
     override void writePrivClientCode(SourceFile sf)
     {
-        sf.write("struct %s;", name);
     }
 }
 
@@ -441,11 +435,9 @@ class Protocol
     void writeClientCode(SourceFile sf, in Options opt)
     {
         printHeader(sf, opt);
-        if (name == "wayland")
-        {
-            sf.write("import wayland.client.core : WlDisplayBase;");
-        }
+        sf.write("import wayland.client.core;");
         sf.write("import wayland.util;");
+        sf.write("import wayland.native.client;");
         foreach(iface; ifaces)
         {
             iface.writeClientCode(sf);
