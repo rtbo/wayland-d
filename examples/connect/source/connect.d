@@ -5,15 +5,15 @@ import std.stdio;
 
 void main()
 {
-	auto conn = WlDisplay.connect();
-	if (conn)
+	auto wl = WlDisplay.connect();
+	if (wl)
 	{
-		writeln("connected");
-		conn.disconnect();
+		writeln("connected to wayland display version ", wl.version_);
+		wl.disconnect();
 		writeln("disconnected");
 	}
 	else
 	{
-		writeln("could not connect");
+		writeln("could not connect to wayland");
 	}
 }
