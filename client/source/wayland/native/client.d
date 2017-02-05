@@ -1,4 +1,4 @@
-// Copyright (c) Rémi Thebault
+// Copyright © 2017 Rémi Thebault
 /// bindings to wayland-client-core.h
 module wayland.native.client;
 
