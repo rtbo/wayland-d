@@ -71,7 +71,7 @@ int main(string[] args)
         auto xmlDoc = new Document;
         xmlDoc.parse(xmlStr, true, true);
         auto p = new Protocol(xmlDoc.root);
-        p.printClientCode(new SourceFile(output), opt);
+        p.writeClientCode(new SourceFile(output), opt);
     }
     catch(Exception ex)
     {
@@ -108,7 +108,18 @@ enum ArgType
 }
 
 
-class Description
+interface ClientCodeGen
+{
+    void writeClientCode(SourceFile sf);
+}
+
+interface ClientPrivCodeGen
+{
+    void writePrivClientCode(SourceFile sf);
+}
+
+
+class Description : ClientCodeGen
 {
     string summary;
     string text;
@@ -128,7 +139,7 @@ class Description
         return summary.empty && text.empty;
     }
 
-    void printClientCode(SourceFile sf)
+    override void writeClientCode(SourceFile sf)
     {
         if (empty) return;
         sf.writeDoc("%s\n\n%s", summary, text);
@@ -136,7 +147,7 @@ class Description
 }
 
 
-class EnumEntry
+class EnumEntry : ClientCodeGen
 {
     string ifaceName;
     string enumName;
@@ -157,7 +168,7 @@ class EnumEntry
         enforce(!value.empty, "enum entries without value aren't supported");
     }
 
-    void printClientCode(SourceFile sf)
+    override void writeClientCode(SourceFile sf)
     {
         if (summary.length)
         {
@@ -170,7 +181,7 @@ class EnumEntry
 }
 
 
-class Enum
+class Enum : ClientCodeGen
 {
     string name;
     string ifaceName;
@@ -199,15 +210,15 @@ class Enum
         return entries.any!(e => !e.summary.empty);
     }
 
-    void printClientCode(SourceFile sf)
+    override void writeClientCode(SourceFile sf)
     {
-        description.printClientCode(sf);
+        description.writeClientCode(sf);
         sf.write("enum %s : uint", dName);
         sf.write("{");
         sf.indent();
         foreach(entry; entries)
         {
-            entry.printClientCode(sf);
+            entry.writeClientCode(sf);
         }
         sf.unindent();
         sf.write("}");
@@ -290,7 +301,7 @@ class Message
 }
 
 
-class Interface
+class Interface : ClientCodeGen
 {
     string name;
     string ver;
@@ -324,9 +335,9 @@ class Interface
         return titleCamelName(name);
     }
 
-    void printClientCode(SourceFile sf)
+    override void writeClientCode(SourceFile sf)
     {
-        description.printClientCode(sf);
+        description.writeClientCode(sf);
         if (name == "wl_display")
         {
             sf.write("class WlDisplay : WlDisplayBase");
@@ -348,7 +359,7 @@ class Interface
         }
         foreach (en; enums)
         {
-            en.printClientCode(sf);
+            en.writeClientCode(sf);
         }
 
         sf.unindent();
@@ -399,7 +410,7 @@ class Protocol
         );
     }
 
-    void printClientCode(SourceFile sf, in Options opt)
+    void writeClientCode(SourceFile sf, in Options opt)
     {
         printHeader(sf, opt);
         if (name == "wayland")
@@ -408,7 +419,7 @@ class Protocol
         }
         foreach(iface; ifaces)
         {
-            iface.printClientCode(sf);
+            iface.writeClientCode(sf);
         }
     }
 }
