@@ -127,6 +127,12 @@ class Description
     {
         return summary.empty && text.empty;
     }
+
+    void printClientCode(File output, int indent)
+    {
+        if (empty) return;
+        output.printDocComment(indent, "%s\n\n%s", summary, text);
+    }
 }
 
 
@@ -153,6 +159,10 @@ class EnumEntry
 
     void printClientCode(File output, int indent)
     {
+        if (summary.length)
+        {
+            printCode(output, indent, "/// %s", summary);
+        }
         printCode(output, indent,
             "%s = %s,", validDName(camelName(name)), value
         );
@@ -191,6 +201,7 @@ class Enum
 
     void printClientCode(File output, int indent)
     {
+        description.printClientCode(output, indent);
         printCode(output, indent, "enum %s : uint", dName);
         printCode(output, indent, "{");
         foreach(entry; entries)
@@ -246,7 +257,6 @@ class Arg
                 throw new Exception("unknown type: "~el.getAttribute("type"));
         }
     }
-
 }
 
 
