@@ -151,6 +151,10 @@ class EnumEntry
         enforce(!value.empty, "enum entries without value aren't supported");
     }
 
+    void printClientCode(File output, int indent)
+    {
+        printCode(output, camelName(name) ~ " = "~value~",", indent);
+    }
 }
 
 
@@ -175,7 +179,7 @@ class Enum
 
     @property dName() const
     {
-        return ifaceName ~ "_" ~ name;
+        return titleCamelName(ifaceName, name);
     }
 
     bool entriesHaveDoc() const
@@ -183,6 +187,16 @@ class Enum
         return entries.any!(e => !e.summary.empty);
     }
 
+    void printClientCode(File output, int indent)
+    {
+        printCode(output, "enum "~dName~" : uint", indent);
+        printCode(output, "{", indent);
+        foreach(entry; entries)
+        {
+            entry.printClientCode(output, indent+1);
+        }
+        printCode(output, "}", indent);
+    }
 }
 
 
@@ -340,6 +354,14 @@ class Interface
     {
         return !requests.empty;
     }
+
+    void printClientCode(File output, int indent)
+    {
+        foreach (en; enums)
+        {
+            en.printClientCode(output, indent);
+        }
+    }
 }
 
 
@@ -388,6 +410,10 @@ class Protocol
     void printClientCode(File output, Options opt)
     {
         printHeader(output, opt);
+        foreach(iface; ifaces)
+        {
+            iface.printClientCode(output, 0);
+        }
     }
 }
 
