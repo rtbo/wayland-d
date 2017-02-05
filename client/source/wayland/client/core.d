@@ -22,15 +22,18 @@ class WlDisplayBase : WlProxy, Native!wl_display
         super(cast(wl_proxy*)native);
     }
 
-    static WlDisplay connect(in string display)
+    static WlDisplay connect(in string name = null)
     {
         import std.string : toStringz;
-        return new WlDisplay(wl_display_connect(toStringz(display)));
+        const(char)* displayName = name.length ? toStringz(name) : null;
+        auto nativeDpy = wl_display_connect(displayName);
+        return nativeDpy ? new WlDisplay(nativeDpy) : null;
     }
 
     static WlDisplay connectToFd(in int fd)
     {
-        return new WlDisplay(wl_display_connect_to_fd(fd));
+        auto nativeDpy = wl_display_connect_to_fd(fd);
+        return nativeDpy ? new WlDisplay(nativeDpy) : null;
     }
 
     final override @property wl_display* native()
