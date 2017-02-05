@@ -123,9 +123,9 @@ class Description
         }
     }
 
-    bool opCast(T)() const if (is(T == bool))
+    @property bool empty() const
     {
-        return !summary.empty || !text.empty;
+        return summary.empty && text.empty;
     }
 }
 
