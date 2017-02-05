@@ -298,10 +298,14 @@ class Message
             args ~= new Arg(argEl);
         }
     }
+
+    void writeClientSigCode(SourceFile sf)
+    {
+    }
 }
 
 
-class Interface : ClientCodeGen
+class Interface : ClientCodeGen, ClientPrivCodeGen
 {
     string name;
     string ver;
@@ -335,6 +339,11 @@ class Interface : ClientCodeGen
         return titleCamelName(name);
     }
 
+    void printVersionCode(SourceFile sf)
+    {
+
+    }
+
     override void writeClientCode(SourceFile sf)
     {
         description.writeClientCode(sf);
@@ -353,17 +362,47 @@ class Interface : ClientCodeGen
         }
         else
         {
-            sf.write("class %s", dName);
+            sf.write("class %s : Native!%s", dName, name);
             sf.write("{");
             sf.indent();
+            sf.write("mixin nativeImpl!%s;", name);
+            sf.write("this(%s* native)", name);
+            sf.write("{");
+            sf.indent();
+            sf.write("_native = native;");
+            sf.unindent();
+            sf.write("}");
         }
         foreach (en; enums)
         {
             en.writeClientCode(sf);
         }
 
+
+
+        if (events.length)
+        {
+            sf.write("/// interface listening to events issued from a %s", dName);
+            sf.write("interface Listener");
+            sf.write("{");
+            {
+                sf.indent();
+                scope(exit) sf.unindent();
+                foreach (ev; events)
+                {
+
+                }
+            }
+            sf.write("}");
+        }
+
         sf.unindent();
         sf.write("}");
+    }
+
+    override void writePrivClientCode(SourceFile sf)
+    {
+        sf.write("struct %s;", name);
     }
 }
 
@@ -417,10 +456,22 @@ class Protocol
         {
             sf.write("import wayland.client.core : WlDisplayBase;");
         }
+        sf.write("import wayland.util;");
         foreach(iface; ifaces)
         {
             iface.writeClientCode(sf);
         }
+
+        // writing private code
+        sf.write("private");
+        sf.write("{");
+        sf.indent();
+        foreach(iface; ifaces)
+        {
+            iface.writePrivClientCode(sf);
+        }
+        sf.unindent();
+        sf.write("}");
     }
 }
 
