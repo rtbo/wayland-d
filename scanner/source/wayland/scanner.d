@@ -245,41 +245,6 @@ class Arg
         }
     }
 
-    @property string dType() const
-    {
-        final switch(type)
-        {
-            case ArgType.Int:
-                return "int ";
-            case ArgType.UInt:
-                return "uint ";
-            case ArgType.Fixed:
-                return "wl_fixed_t ";
-            case ArgType.String:
-                return "const(char) *";
-            case ArgType.Object:
-                return iface ~ " *";
-            case ArgType.NewId:
-                return "uint ";
-            case ArgType.Array:
-                return "wl_array *";
-            case ArgType.Fd:
-                return "int ";
-        }
-    }
-
-    @property string dName() const
-    {
-        if (name == "interface")
-        {
-            return "iface";
-        }
-        else if (name == "version")
-        {
-            return "ver";
-        }
-        return name;
-    }
 }
 
 
@@ -307,11 +272,6 @@ class Message
         {
             args ~= new Arg(argEl);
         }
-    }
-
-    @property string opCodeSym() const
-    {
-        return ifaceName.toUpper ~ "_" ~ name.toUpper;
     }
 }
 
@@ -343,16 +303,6 @@ class Interface
         {
             enums ~= new Enum(enEl, name);
         }
-    }
-
-    @property bool haveListener() const
-    {
-        return !events.empty;
-    }
-
-    @property bool haveInterface() const
-    {
-        return !requests.empty;
     }
 
     void printClientCode(File output, int indent)
