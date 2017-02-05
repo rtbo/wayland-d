@@ -153,7 +153,9 @@ class EnumEntry
 
     void printClientCode(File output, int indent)
     {
-        printCode(output, indent, "%s = %s,", camelName(name), value);
+        printCode(output, indent,
+            "%s = %s,", validDName(camelName(name)), value
+        );
     }
 }
 
@@ -367,6 +369,21 @@ class Protocol
     }
 }
 
+
+string validDName(in string name) pure
+{
+    switch (name)
+    {
+        case "interface": return "iface";
+        case "version": return "version_";
+        case "default": return "default_";
+        default:
+        {
+            if (name[0] >= '0' && name[0] <= '9') return "_" ~ name;
+            else return name;
+        }
+    }
+}
 
 string getElText(Element el)
 {
