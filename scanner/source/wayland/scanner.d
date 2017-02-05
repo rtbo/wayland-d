@@ -509,6 +509,11 @@ class SourceFile
         _indentLev -= 1;
     }
 
+    void write()
+    {
+        _output.writeln();
+    }
+
     /++
     +   prints indented code and adds a final '\n'
     +/
@@ -517,8 +522,8 @@ class SourceFile
         immutable code = format(codeFmt, args);
         immutable iStr = indentStr(_indentLev);
         foreach (l; code.split("\n")) {
-            if (l.empty) output.writeln();
-            else output.writeln(iStr, l);
+            if (l.empty) _output.writeln();
+            else _output.writeln(iStr, l);
         }
     }
 
@@ -526,24 +531,24 @@ class SourceFile
     {
         immutable text = format(textFmt, args);
         immutable indStr = indentStr(_indentLev);
-        output.writeln(indStr, "/+");
+        _output.writeln(indStr, "/+");
         foreach (l; text.split("\n")) {
-            if (l.empty) output.writeln(indStr, " +");
-            else output.writeln(indStr, " +  ", l);
+            if (l.empty) _output.writeln(indStr, " +");
+            else _output.writeln(indStr, " +  ", l);
         }
-        output.writeln(indStr, " +/");
+        _output.writeln(indStr, " +/");
     }
 
     void writeDoc(Args...)(string textFmt, Args args)
     {
         immutable text = format(textFmt, args);
         immutable indStr = indentStr(_indentLev);
-        output.writeln(indStr, "/++");
+        _output.writeln(indStr, "/++");
         foreach (l; text.split("\n")) {
-            if (l.empty) output.writeln(indStr, " +");
-            else output.writeln(indStr, " +  ", l);
+            if (l.empty) _output.writeln(indStr, " +");
+            else _output.writeln(indStr, " +  ", l);
         }
-        output.writeln(indStr, " +/");
+        _output.writeln(indStr, " +/");
     }
 }
 
