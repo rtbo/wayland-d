@@ -10,6 +10,8 @@
 	"subPackages": [
 		"./scanner/",
 		"./client/",
-		"./server/"
+		"./server/",
+
+		"./examples/connect/"
 	]
 }
