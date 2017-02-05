@@ -319,6 +319,11 @@ class Interface
         }
     }
 
+    @property string dName() const
+    {
+        return titleCamelName(name);
+    }
+
     void printClientCode(SourceFile sf)
     {
         description.printClientCode(sf);
@@ -328,7 +333,6 @@ class Interface
             sf.write("{");
             sf.indent();
             sf.write("import wayland.native.client : wl_display;");
-            sf.write();
             sf.write("package(wayland) this(wl_display* native)");
             sf.write("{");
             sf.indent();
@@ -338,7 +342,7 @@ class Interface
         }
         else
         {
-            sf.write("class %s", titleCamelName(name));
+            sf.write("class %s", dName);
             sf.write("{");
             sf.indent();
         }
