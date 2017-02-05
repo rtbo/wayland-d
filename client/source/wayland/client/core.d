@@ -1,6 +1,7 @@
 module wayland.client.core;
 
 import wayland.native.client;
+import wayland.client.protocol : WlDisplay;
 import wayland.util;
 
 
@@ -16,9 +17,20 @@ class WlEventQueue : Native!wl_event_queue
 
 class WlDisplayBase : WlProxy, Native!wl_display
 {
-    private this(wl_display* native)
+    protected this(wl_display* native)
     {
         super(cast(wl_proxy*)native);
+    }
+
+    static WlDisplay connect(in string display)
+    {
+        import std.string : toStringz;
+        return new WlDisplay(wl_display_connect(toStringz(display)));
+    }
+
+    static WlDisplay connectToFd(in int fd)
+    {
+        return new WlDisplay(wl_display_connect_to_fd(fd));
     }
 
     final override @property wl_display* native()

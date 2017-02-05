@@ -327,18 +327,12 @@ class Interface
             sf.write("class WlDisplay : WlDisplayBase");
             sf.write("{");
             sf.indent();
-
-            sf.write("static WlDisplay connect(in string display)");
+            sf.write("import wayland.native.client : wl_display;");
+            sf.write();
+            sf.write("package(wayland) this(wl_display* native)");
             sf.write("{");
             sf.indent();
-            sf.write("return null;");
-            sf.unindent();
-            sf.write("}");
-
-            sf.write("static WlDisplay connectToFd(in int fd)");
-            sf.write("{");
-            sf.indent();
-            sf.write("return null;");
+            sf.write("super(native);");
             sf.unindent();
             sf.write("}");
         }
@@ -404,6 +398,10 @@ class Protocol
     void printClientCode(SourceFile sf, in Options opt)
     {
         printHeader(sf, opt);
+        if (name == "wayland")
+        {
+            sf.write("import wayland.client.core : WlDisplayBase;");
+        }
         foreach(iface; ifaces)
         {
             iface.printClientCode(sf);
