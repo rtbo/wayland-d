@@ -214,14 +214,12 @@ class Enum : ClientCodeGen
     {
         description.writeClientCode(sf);
         sf.write("enum %s : uint", dName);
-        sf.write("{");
-        sf.indent();
-        foreach(entry; entries)
-        {
-            entry.writeClientCode(sf);
-        }
-        sf.unindent();
-        sf.write("}");
+        sf.writeBlock!({
+            foreach(entry; entries)
+            {
+                entry.writeClientCode(sf);
+            }
+        });
     }
 }
 
@@ -354,11 +352,9 @@ class Interface : ClientCodeGen, ClientPrivCodeGen
             sf.indent();
             sf.write("import wayland.native.client : wl_display;");
             sf.write("package(wayland) this(wl_display* native)");
-            sf.write("{");
-            sf.indent();
-            sf.write("super(native);");
-            sf.unindent();
-            sf.write("}");
+            sf.writeBlock!({
+                sf.write("super(native);");
+            });
         }
         else
         {
@@ -367,11 +363,9 @@ class Interface : ClientCodeGen, ClientPrivCodeGen
             sf.indent();
             sf.write("mixin nativeImpl!%s;", name);
             sf.write("this(%s* native)", name);
-            sf.write("{");
-            sf.indent();
-            sf.write("_native = native;");
-            sf.unindent();
-            sf.write("}");
+            sf.writeBlock!({
+                sf.write("_native = native;");
+            });
         }
         foreach (en; enums)
         {
@@ -384,16 +378,11 @@ class Interface : ClientCodeGen, ClientPrivCodeGen
         {
             sf.write("/// interface listening to events issued from a %s", dName);
             sf.write("interface Listener");
-            sf.write("{");
-            {
-                sf.indent();
-                scope(exit) sf.unindent();
+            sf.writeBlock!({
                 foreach (ev; events)
                 {
-
                 }
-            }
-            sf.write("}");
+            });
         }
 
         sf.unindent();
@@ -464,14 +453,12 @@ class Protocol
 
         // writing private code
         sf.write("private");
-        sf.write("{");
-        sf.indent();
-        foreach(iface; ifaces)
-        {
-            iface.writePrivClientCode(sf);
-        }
-        sf.unindent();
-        sf.write("}");
+        sf.writeBlock!({
+            foreach(iface; ifaces)
+            {
+                iface.writePrivClientCode(sf);
+            }
+        });
     }
 }
 
@@ -614,6 +601,16 @@ class SourceFile
         }
         _output.writeln(indStr, " +/");
     }
+}
+
+
+void writeBlock(alias writeF)(SourceFile sf)
+{
+    sf.write("{");
+    sf.indent();
+    writeF();
+    sf.unindent();
+    sf.write("}");
 }
 
 
