@@ -6,7 +6,7 @@ import wayland.native.util;
 interface Native(wl_native)
 {
     /// Access the wrapped struct.
-    @property wl_native* native();
+    @property inout(wl_native)* native() inout;
 }
 
 /// Utility mixin that implements Native for a type.
@@ -14,7 +14,7 @@ mixin template nativeImpl(wl_native)
 {
     private wl_native* _native;
 
-    public final override @property wl_native* native()
+    public final override @property inout(wl_native)* native() inout
     {
         return _native;
     }
@@ -24,6 +24,13 @@ mixin template nativeImpl(wl_native)
 class WlInterface : Native!wl_interface
 {
     mixin nativeImpl!wl_interface;
+
+    this(wl_interface* native)
+    {
+        _native = native;
+    }
+
+
 }
 
 

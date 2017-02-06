@@ -36,9 +36,9 @@ abstract class WlDisplayBase : WlProxy, Native!wl_display
         return nativeDpy ? new WlDisplay(nativeDpy) : null;
     }
 
-    final override @property wl_display* native()
+    final override @property inout(wl_display)* native() inout
     {
-        return cast(wl_display*)(proxy);
+        return cast(inout(wl_display)*)(proxy);
     }
 
     final void disconnect()
@@ -129,7 +129,7 @@ abstract class WlProxy
         _proxy = proxy;
     }
 
-    protected final @property wl_proxy* proxy()
+    protected final @property inout(wl_proxy)* proxy() inout
     {
         return _proxy;
     }
