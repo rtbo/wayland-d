@@ -21,16 +21,14 @@ mixin template nativeImpl(wl_native)
 }
 
 
-class WlInterface : Native!wl_interface
+immutable abstract class WlInterface
 {
-    mixin nativeImpl!wl_interface;
+    immutable wl_interface* _native;
 
-    this(wl_interface* native)
+    immutable this(immutable wl_interface* native)
     {
-        _native = native;
+        this._native = native;
     }
-
-
 }
 
 
