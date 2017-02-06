@@ -287,6 +287,29 @@ class Arg
         nullable = allowNull == "true";
         enforce(!nullable || isNullable(type));
     }
+
+
+    @property string cType() const
+    {
+        final switch(type) {
+            case ArgType.Int:
+                return "int";
+            case ArgType.UInt:
+                return "uint";
+            case ArgType.Fixed:
+                return "wl_fixed_t";
+            case ArgType.String:
+                return "const(char)*";
+            case ArgType.Object:
+                return "wl_proxy*";
+            case ArgType.NewId:
+                return "uint";
+            case ArgType.Array:
+                return "wl_array*";
+            case ArgType.Fd:
+                return "int";
+        }
+    }
 }
 
 
@@ -389,8 +412,26 @@ class Message
         );
     }
 
-    void writeClientSigCode(SourceFile sf)
+    void writePrivListenerFunc(SourceFile sf)
     {
+        enum fstLine = "void function(";
+        immutable lstEol = format(") %s;", validDName(name));
+
+        immutable indent = ' '.repeat.take(fstLine.length).array();
+        sf.write("%svoid* data,", fstLine);
+        auto eol = args.empty ? lstEol : ",";
+        sf.write("%swl_proxy* proxy%s", indent, eol);
+        foreach(i, arg; args)
+        {
+            auto ct = arg.cType;
+            if (arg.type == ArgType.Object && arg.iface.empty)
+            {
+                ct = "void*";
+                stderr.writeln("check if wl_proxy can be used");
+            }
+            eol = i == args.length-1 ? lstEol : ",";
+            sf.write("%s%s %s%s", indent, arg.cType, validDName(camelName(arg.name)), eol);
+        }
     }
 }
 
@@ -481,6 +522,20 @@ class Interface : ClientCodeGen
                 });
             }
         });
+    }
+
+    void writePrivListener(SourceFile sf)
+    {
+        if (events.empty) return;
+
+        sf.write("struct %s_listener", name);
+        sf.bracedBlock!({
+            foreach(ev; events)
+            {
+                ev.writePrivListenerFunc(sf);
+            }
+        });
+        sf.write();
     }
 
     void writePrivIfaceMsgs(SourceFile sf, Message[] msgs, in string suffix)
@@ -574,8 +629,12 @@ class Protocol
         }
 
         // writing private code
-        sf.write("private");
-        sf.writeBlock!({
+        sf.write("private extern(C) nothrow");
+        sf.bracedBlock!({
+            foreach(iface; ifaces)
+            {
+                iface.writePrivListener(sf);
+            }
             writePrivIfaces(sf);
         });
     }
