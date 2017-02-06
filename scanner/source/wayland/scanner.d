@@ -489,7 +489,7 @@ class Interface : ClientCodeGen
     {
         description.writeClientCode(sf);
 
-        sf.write("class %s : %s", dName,
+        sf.write("final class %s : %s", dName,
             name == "wl_display" ?
                 "WlDisplayBase" :
                 "WlProxy");
