@@ -719,6 +719,12 @@ class Protocol
         sf.writeln("import wayland.native.client;");
         sf.writeln("import wayland.native.util;");
         sf.writeln("import wayland.util;");
+        sf.writeln();
+        foreach(iface; ifaces)
+        {
+            sf.writeln("immutable WlInterface %sInterface;", camelName(iface.name));
+        }
+        sf.writeln();
         foreach(iface; ifaces)
         {
             iface.writeClientCode(sf);
@@ -726,18 +732,42 @@ class Protocol
         }
 
         // writing private code
-        sf.writeln("private extern(C) nothrow");
+        sf.writeln("private");
         sf.bracedBlock!({
+            writePrivIfaces(sf);
+            sf.writeln();
+            sf.writeln("extern(C) nothrow:");
+            sf.writeln();
             foreach(iface; ifaces)
             {
                 iface.writePrivListener(sf);
             }
-            writePrivIfaces(sf);
         });
     }
 
     void writePrivIfaces(SourceFile sf)
     {
+        foreach (iface; ifaces)
+        {
+            sf.writeln("immutable final class %sInterface : ClientWlInterface",
+                    titleCamelName(iface.name));
+            sf.bracedBlock!({
+                sf.writeln("this(immutable wl_interface* native)");
+                sf.bracedBlock!({
+                    sf.writeln("super(native);");
+                });
+                sf.writeln("override WlProxy makeProxy(wl_proxy* proxy) immutable");
+                sf.bracedBlock!({
+                    if (iface.name == "wl_display")
+                    {
+                        sf.writeln("return new WlDisplay(cast(wl_display*)proxy);");
+                    }
+                    else
+                        sf.writeln("return new %s(proxy);", titleCamelName(iface.name));
+                });
+            });
+            sf.writeln();
+        }
         sf.writeln("immutable wl_interface[] wl_interfaces;");
         sf.writeln();
         foreach (i, iface; ifaces)
@@ -758,6 +788,14 @@ class Protocol
             }
             sf.writeln("import std.exception : assumeUnique;");
             sf.writeln("wl_interfaces = assumeUnique(ifaces);");
+            sf.writeln();
+            foreach (iface; ifaces)
+            {
+                sf.writeln("%sInterface = new immutable %sInterface( &wl_interfaces[%s] );",
+                        camelName(iface.name),
+                        titleCamelName(iface.name),
+                        indexSymbol(iface.name));
+            }
         });
     }
 
