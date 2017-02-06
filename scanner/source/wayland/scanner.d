@@ -228,7 +228,7 @@ class Enum : ClientCodeGen
     {
         description.writeClientCode(sf);
         sf.write("enum %s : uint", dName);
-        sf.writeBlock!({
+        sf.bracedBlock!({
             foreach(entry; entries)
             {
                 entry.writeClientCode(sf);
@@ -439,7 +439,7 @@ class Interface : ClientCodeGen
     void printVersionCode(SourceFile sf)
     {
         sf.write("override @property uint version_()");
-        sf.writeBlock!({
+        sf.bracedBlock!({
             sf.write("return wl_proxy_get_version(proxy);");
         });
     }
@@ -452,14 +452,14 @@ class Interface : ClientCodeGen
             name == "wl_display" ?
                 "WlDisplayBase" :
                 "WlProxy");
-        sf.writeBlock!(
+        sf.bracedBlock!(
         {
             sf.write("/// Build a %s from a native object.", dName);
             sf.write(name == "wl_display" ?
                 "package(wayland) this(wl_display* native)" :
                 "private this(wl_proxy* native)"
             );
-            sf.writeBlock!({
+            sf.bracedBlock!({
                 sf.write("super(native);");
             });
 
@@ -474,7 +474,7 @@ class Interface : ClientCodeGen
             {
                 sf.write("/// interface listening to events issued from a %s", dName);
                 sf.write("interface Listener");
-                sf.writeBlock!({
+                sf.bracedBlock!({
                     foreach (ev; events)
                     {
                     }
@@ -488,7 +488,7 @@ class Interface : ClientCodeGen
         if (msgs.empty) return;
 
         sf.write("auto %s_%s = [", name, suffix);
-        sf.writeIndented!({
+        sf.indentedBlock!({
             foreach(msg; msgs)
             {
                 msg.writePrivIfaceMsg(sf);
@@ -590,7 +590,7 @@ class Protocol
         }
         sf.write();
         sf.write("shared static this()");
-        sf.writeBlock!({
+        sf.bracedBlock!({
             sf.write("auto ifaces = new wl_interface[%d];", ifaces.length);
             sf.write();
             writePrivMsgTypes(sf);
@@ -613,7 +613,7 @@ class Protocol
         size_t typeIndex = 0;
 
         sf.write("auto msgTypes = [");
-        sf.writeIndented!({
+        sf.indentedBlock!({
             foreach(i; 0..nullLength)
             {
                 sf.write("null,");
@@ -798,7 +798,7 @@ class SourceFile
 }
 
 
-void writeBlock(alias writeF)(SourceFile sf)
+void bracedBlock(alias writeF)(SourceFile sf)
 {
     sf.write("{");
     sf.indent();
@@ -807,7 +807,7 @@ void writeBlock(alias writeF)(SourceFile sf)
     sf.write("}");
 }
 
-void writeIndented(alias writeF)(SourceFile sf)
+void indentedBlock(alias writeF)(SourceFile sf)
 {
     sf.indent();
     writeF();
