@@ -1,7 +1,8 @@
 module wayland.client.core;
 
-import wayland.native.client;
 import wayland.client.protocol : WlDisplay;
+import wayland.native.client;
+import wayland.native.util;
 import wayland.util;
 
 
@@ -135,4 +136,14 @@ abstract class WlProxy
     }
 
     abstract @property uint version_();
+}
+
+immutable abstract class ClientWlInterface : WlInterface
+{
+    this(immutable wl_interface* native)
+    {
+        super(native);
+    }
+
+    abstract WlProxy makeProxy(wl_proxy* proxy) immutable;
 }
