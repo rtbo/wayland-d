@@ -477,7 +477,7 @@ class Interface : ClientCodeGen
             .maxElement();
     }
 
-    void printVersionCode(SourceFile sf)
+    void writeVersionCode(SourceFile sf)
     {
         sf.write("override @property uint version_()");
         sf.bracedBlock!({
@@ -504,7 +504,7 @@ class Interface : ClientCodeGen
                 sf.write("super(native);");
             });
 
-            printVersionCode(sf);
+            writeVersionCode(sf);
 
             foreach (en; enums)
             {
@@ -595,7 +595,7 @@ class Protocol
         }
     }
 
-    void printHeader(SourceFile sf, in Options opt)
+    void writeHeader(SourceFile sf, in Options opt)
     {
         import std.path : baseName;
         sf.writeDoc(
@@ -617,7 +617,7 @@ class Protocol
 
     void writeClientCode(SourceFile sf, in Options opt)
     {
-        printHeader(sf, opt);
+        writeHeader(sf, opt);
         sf.write("import wayland.client.core;");
         sf.write("import wayland.native.client;");
         sf.write("import wayland.native.util;");
@@ -819,7 +819,7 @@ class SourceFile
     }
 
     /++
-    +   prints indented code and adds a final '\n'
+    +   writes indented code and adds a final '\n'
     +/
     void write(Args...)(string codeFmt, Args args)
     {
