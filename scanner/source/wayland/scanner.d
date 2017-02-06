@@ -477,6 +477,19 @@ class Interface : ClientCodeGen
             .maxElement();
     }
 
+    void writeConstants(SourceFile sf)
+    {
+        foreach(i, msg; requests)
+        {
+            sf.write("enum %sOpcode = %d;", camelName(msg.name), i);
+        }
+        sf.write();
+        foreach(msg; chain(events, requests))
+        {
+            sf.write("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
+        }
+    }
+
     void writeVersionCode(SourceFile sf)
     {
         sf.write("override @property uint version_()");
@@ -504,13 +517,16 @@ class Interface : ClientCodeGen
                 sf.write("super(native);");
             });
 
+            sf.write();
+            writeConstants(sf);
+            sf.write();
             writeVersionCode(sf);
-
+            sf.write();
             foreach (en; enums)
             {
                 en.writeClientCode(sf);
+                sf.write();
             }
-
             if (events.length)
             {
                 sf.write("/// interface listening to events issued from a %s", dName);
