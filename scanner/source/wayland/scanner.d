@@ -186,9 +186,9 @@ class EnumEntry : ClientCodeGen
     {
         if (summary.length)
         {
-            sf.write("/// %s", summary);
+            sf.writeln("/// %s", summary);
         }
-        sf.write(
+        sf.writeln(
             "%s = %s,", validDName(camelName(name)), value
         );
     }
@@ -227,7 +227,7 @@ class Enum : ClientCodeGen
     override void writeClientCode(SourceFile sf)
     {
         description.writeClientCode(sf);
-        sf.write("enum %s : uint", dName);
+        sf.writeln("enum %s : uint", dName);
         sf.bracedBlock!({
             foreach(entry; entries)
             {
@@ -406,7 +406,7 @@ class Message
 
     void writePrivIfaceMsg(SourceFile sf)
     {
-        sf.write(
+        sf.writeln(
             "wl_message(\"%s\", \"%s\", &msgTypes[%d]),",
             name, signature, ifaceTypeIndex
         );
@@ -418,9 +418,9 @@ class Message
         immutable lstEol = format(") %s;", validDName(name));
 
         immutable indent = ' '.repeat.take(fstLine.length).array();
-        sf.write("%svoid* data,", fstLine);
+        sf.writeln("%svoid* data,", fstLine);
         auto eol = args.empty ? lstEol : ",";
-        sf.write("%swl_proxy* proxy%s", indent, eol);
+        sf.writeln("%swl_proxy* proxy%s", indent, eol);
         foreach(i, arg; args)
         {
             auto ct = arg.cType;
@@ -430,7 +430,7 @@ class Message
                 stderr.writeln("check if wl_proxy can be used");
             }
             eol = i == args.length-1 ? lstEol : ",";
-            sf.write("%s%s %s%s", indent, arg.cType, validDName(camelName(arg.name)), eol);
+            sf.writeln("%s%s %s%s", indent, arg.cType, validDName(camelName(arg.name)), eol);
         }
     }
 }
@@ -481,20 +481,20 @@ class Interface : ClientCodeGen
     {
         foreach(i, msg; requests)
         {
-            sf.write("enum %sOpcode = %d;", camelName(msg.name), i);
+            sf.writeln("enum %sOpcode = %d;", camelName(msg.name), i);
         }
-        sf.write();
+        sf.writeln();
         foreach(msg; chain(events, requests))
         {
-            sf.write("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
+            sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
         }
     }
 
     void writeVersionCode(SourceFile sf)
     {
-        sf.write("override @property uint version_()");
+        sf.writeln("override @property uint version_()");
         sf.bracedBlock!({
-            sf.write("return wl_proxy_get_version(proxy);");
+            sf.writeln("return wl_proxy_get_version(proxy);");
         });
     }
 
@@ -502,35 +502,35 @@ class Interface : ClientCodeGen
     {
         description.writeClientCode(sf);
 
-        sf.write("final class %s : %s", dName,
+        sf.writeln("final class %s : %s", dName,
             name == "wl_display" ?
                 "WlDisplayBase" :
                 "WlProxy");
         sf.bracedBlock!(
         {
-            sf.write("/// Build a %s from a native object.", dName);
-            sf.write(name == "wl_display" ?
+            sf.writeln("/// Build a %s from a native object.", dName);
+            sf.writeln(name == "wl_display" ?
                 "package(wayland) this(wl_display* native)" :
                 "private this(wl_proxy* native)"
             );
             sf.bracedBlock!({
-                sf.write("super(native);");
+                sf.writeln("super(native);");
             });
 
-            sf.write();
+            sf.writeln();
             writeConstants(sf);
-            sf.write();
+            sf.writeln();
             writeVersionCode(sf);
-            sf.write();
+            sf.writeln();
             foreach (en; enums)
             {
                 en.writeClientCode(sf);
-                sf.write();
+                sf.writeln();
             }
             if (events.length)
             {
-                sf.write("/// interface listening to events issued from a %s", dName);
-                sf.write("interface Listener");
+                sf.writeln("/// interface listening to events issued from a %s", dName);
+                sf.writeln("interface Listener");
                 sf.bracedBlock!({
                     foreach (ev; events)
                     {
@@ -544,28 +544,28 @@ class Interface : ClientCodeGen
     {
         if (events.empty) return;
 
-        sf.write("struct %s_listener", name);
+        sf.writeln("struct %s_listener", name);
         sf.bracedBlock!({
             foreach(ev; events)
             {
                 ev.writePrivListenerFunc(sf);
             }
         });
-        sf.write();
+        sf.writeln();
     }
 
     void writePrivIfaceMsgs(SourceFile sf, Message[] msgs, in string suffix)
     {
         if (msgs.empty) return;
 
-        sf.write("auto %s_%s = [", name, suffix);
+        sf.writeln("auto %s_%s = [", name, suffix);
         sf.indentedBlock!({
             foreach(msg; msgs)
             {
                 msg.writePrivIfaceMsg(sf);
             }
         });
-        sf.write("];");
+        sf.writeln("];");
     }
 
     void writePrivIfacePopulate(SourceFile sf)
@@ -573,18 +573,18 @@ class Interface : ClientCodeGen
         writePrivIfaceMsgs(sf, requests, "requests");
         writePrivIfaceMsgs(sf, events, "events");
         immutable memb = format("ifaces[%s]", indexSymbol(name));
-        sf.write(`%s.name = "%s";`, memb, name);
-        sf.write("%s.version_ = %s;", memb, ver);
+        sf.writeln(`%s.name = "%s";`, memb, name);
+        sf.writeln("%s.version_ = %s;", memb, ver);
 
         if (requests.length)
         {
-            sf.write("%s.method_count = %d;", memb, requests.length);
-            sf.write("%s.methods = %s_requests.ptr;", memb, name);
+            sf.writeln("%s.method_count = %d;", memb, requests.length);
+            sf.writeln("%s.methods = %s_requests.ptr;", memb, name);
         }
         if (events.length)
         {
-            sf.write("%s.event_count = %d;", memb, events.length);
-            sf.write("%s.events = %s_events.ptr;", memb, name);
+            sf.writeln("%s.event_count = %d;", memb, events.length);
+            sf.writeln("%s.events = %s_events.ptr;", memb, name);
         }
     }
 }
@@ -622,7 +622,7 @@ class Protocol
                 (opt.inFile.length ? baseName(opt.inFile) : "stdin"),
                 opt.code.to!string
         );
-        sf.write("module %s;", opt.moduleName);
+        sf.writeln("module %s;", opt.moduleName);
         sf.writeComment(
             "Protocol copyright:\n\n%s", copyright
         );
@@ -634,18 +634,18 @@ class Protocol
     void writeClientCode(SourceFile sf, in Options opt)
     {
         writeHeader(sf, opt);
-        sf.write("import wayland.client.core;");
-        sf.write("import wayland.native.client;");
-        sf.write("import wayland.native.util;");
-        sf.write("import wayland.util;");
+        sf.writeln("import wayland.client.core;");
+        sf.writeln("import wayland.native.client;");
+        sf.writeln("import wayland.native.util;");
+        sf.writeln("import wayland.util;");
         foreach(iface; ifaces)
         {
             iface.writeClientCode(sf);
-            sf.write();
+            sf.writeln();
         }
 
         // writing private code
-        sf.write("private extern(C) nothrow");
+        sf.writeln("private extern(C) nothrow");
         sf.bracedBlock!({
             foreach(iface; ifaces)
             {
@@ -657,26 +657,26 @@ class Protocol
 
     void writePrivIfaces(SourceFile sf)
     {
-        sf.write("immutable wl_interface[] wl_interfaces;");
-        sf.write();
+        sf.writeln("immutable wl_interface[] wl_interfaces;");
+        sf.writeln();
         foreach (i, iface; ifaces)
         {
-            sf.write("enum %s = %d;", indexSymbol(iface.name), i);
+            sf.writeln("enum %s = %d;", indexSymbol(iface.name), i);
         }
-        sf.write();
-        sf.write("shared static this()");
+        sf.writeln();
+        sf.writeln("shared static this()");
         sf.bracedBlock!({
-            sf.write("auto ifaces = new wl_interface[%d];", ifaces.length);
-            sf.write();
+            sf.writeln("auto ifaces = new wl_interface[%d];", ifaces.length);
+            sf.writeln();
             writePrivMsgTypes(sf);
-            sf.write();
+            sf.writeln();
             foreach (iface; ifaces)
             {
                 iface.writePrivIfacePopulate(sf);
-                sf.write();
+                sf.writeln();
             }
-            sf.write("import std.exception : assumeUnique;");
-            sf.write("wl_interfaces = assumeUnique(ifaces);");
+            sf.writeln("import std.exception : assumeUnique;");
+            sf.writeln("wl_interfaces = assumeUnique(ifaces);");
         });
     }
 
@@ -687,11 +687,11 @@ class Protocol
             .maxElement();
         size_t typeIndex = 0;
 
-        sf.write("auto msgTypes = [");
+        sf.writeln("auto msgTypes = [");
         sf.indentedBlock!({
             foreach(i; 0..nullLength)
             {
-                sf.write("null,");
+                sf.writeln("null,");
             }
             foreach (iface; ifaces)
             {
@@ -710,18 +710,18 @@ class Protocol
                             (arg.type == ArgType.NewId ||
                                 arg.type == ArgType.Object))
                         {
-                            sf.write("&ifaces[%s],", indexSymbol(arg.iface));
+                            sf.writeln("&ifaces[%s],", indexSymbol(arg.iface));
                         }
                         else
                         {
-                            sf.write("null,");
+                            sf.writeln("null,");
                         }
                     }
 
                 }
             }
         });
-        sf.write("];");
+        sf.writeln("];");
     }
 }
 
@@ -829,7 +829,7 @@ class SourceFile
         _indentLev -= 1;
     }
 
-    void write()
+    void writeln()
     {
         _output.writeln();
     }
@@ -837,7 +837,7 @@ class SourceFile
     /++
     +   writes indented code and adds a final '\n'
     +/
-    void write(Args...)(string codeFmt, Args args)
+    void writeln(Args...)(string codeFmt, Args args)
     {
         immutable code = format(codeFmt, args);
         immutable iStr = indentStr(_indentLev);
@@ -875,11 +875,11 @@ class SourceFile
 
 void bracedBlock(alias writeF)(SourceFile sf)
 {
-    sf.write("{");
+    sf.writeln("{");
     sf.indent();
     writeF();
     sf.unindent();
-    sf.write("}");
+    sf.writeln("}");
 }
 
 void indentedBlock(alias writeF)(SourceFile sf)
