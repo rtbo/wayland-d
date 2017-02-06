@@ -29,6 +29,11 @@ immutable abstract class WlInterface
     {
         this._native = native;
     }
+
+    @property immutable(wl_interface)* native() immutable
+    {
+        return _native;
+    }
 }
 
 
