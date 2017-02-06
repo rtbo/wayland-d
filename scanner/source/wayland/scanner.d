@@ -10,8 +10,10 @@ import arsd.dom;
 import std.algorithm;
 import std.array;
 import std.conv;
+import std.exception;
 import std.format;
 import std.getopt;
+import std.range;
 import std.stdio;
 import std.uni;
 
@@ -55,7 +57,6 @@ int main(string[] args)
         return 1;
     }
 
-    import std.exception : enforce;
     enforce(opt.code == GenCode.client, "Only client generator is implemented at this time");
 
     try
@@ -105,6 +106,20 @@ class Options
 enum ArgType
 {
     Int, UInt, Fixed, String, Object, NewId, Array, Fd
+}
+
+@property bool isNullable(in ArgType at) pure
+{
+    switch (at)
+    {
+    case ArgType.String:
+    case ArgType.Object:
+    case ArgType.NewId:
+    case ArgType.Array:
+        return true;
+    default:
+        return false;
+    }
 }
 
 
@@ -164,7 +179,6 @@ class EnumEntry : ClientCodeGen
         value = el.getAttribute("value");
         summary = el.getAttribute("summary");
 
-        import std.exception : enforce;
         enforce(!value.empty, "enum entries without value aren't supported");
     }
 
@@ -230,6 +244,7 @@ class Arg
     string name;
     string summary;
     string iface;
+    bool nullable;
     ArgType type;
 
     this (Element el)
@@ -267,6 +282,10 @@ class Arg
             default:
                 throw new Exception("unknown type: "~el.getAttribute("type"));
         }
+        immutable allowNull = el.getAttribute("allow-null");
+        enforce (!allowNull.length || (allowNull == "true" || allowNull == "false"));
+        nullable = allowNull == "true";
+        enforce(!nullable || isNullable(type));
     }
 }
 
@@ -279,6 +298,9 @@ class Message
     bool isDtor;
     Description description;
     Arg[] args;
+
+    string[] argIfaceTypes;
+    size_t ifaceTypeIndex;
 
     this (Element el, string ifaceName)
     {
@@ -295,6 +317,76 @@ class Message
         {
             args ~= new Arg(argEl);
         }
+
+        argIfaceTypes = args
+            .filter!(a => a.type == ArgType.NewId || a.type == ArgType.Object)
+            .map!(a => a.iface)
+            .filter!(iface => iface.length != 0)
+            .array();
+    }
+
+    @property bool ifaceTypesAllNull() const
+    {
+        return argIfaceTypes.empty;
+    }
+
+    @property size_t nullIfaceTypeLength() const
+    {
+        return argIfaceTypes.empty ? args.length : 0;
+    }
+
+    @property string signature() const
+    {
+        string sig;
+        if (since > 1)
+        {
+            sig ~= since.to!string;
+        }
+        foreach(arg; args)
+        {
+            if (arg.nullable) sig ~= '?';
+            final switch(arg.type)
+            {
+            case ArgType.Int:
+                sig ~= 'i';
+                break;
+            case ArgType.NewId:
+                if (arg.iface.empty)
+                {
+                    stderr.writeln("NewId to be checked");
+                    sig ~= "su";
+                }
+                sig ~= "n";
+                break;
+            case ArgType.UInt:
+                sig ~= "u";
+                break;
+            case ArgType.Fixed:
+                sig ~= "f";
+                break;
+            case ArgType.String:
+                sig ~= "s";
+                break;
+            case ArgType.Object:
+                sig ~= "o";
+                break;
+            case ArgType.Array:
+                sig ~= "a";
+                break;
+            case ArgType.Fd:
+                sig ~= "h";
+                break;
+            }
+        }
+        return sig;
+    }
+
+    void writePrivIfaceMsg(SourceFile sf)
+    {
+        sf.write(
+            "wl_message(\"%s\", \"%s\", &msgTypes[%d]),",
+            name, signature, ifaceTypeIndex
+        );
     }
 
     void writeClientSigCode(SourceFile sf)
@@ -303,7 +395,7 @@ class Message
 }
 
 
-class Interface : ClientCodeGen, ClientPrivCodeGen
+class Interface : ClientCodeGen
 {
     string name;
     string ver;
@@ -335,6 +427,13 @@ class Interface : ClientCodeGen, ClientPrivCodeGen
     @property string dName() const
     {
         return titleCamelName(name);
+    }
+
+    @property size_t nullIfaceTypeLength()
+    {
+        return chain(requests, events)
+            .map!(msg => msg.nullIfaceTypeLength)
+            .maxElement();
     }
 
     void printVersionCode(SourceFile sf)
@@ -384,8 +483,38 @@ class Interface : ClientCodeGen, ClientPrivCodeGen
         });
     }
 
-    override void writePrivClientCode(SourceFile sf)
+    void writePrivIfaceMsgs(SourceFile sf, Message[] msgs, in string suffix)
     {
+        if (msgs.empty) return;
+
+        sf.write("auto %s_%s = [", name, suffix);
+        sf.writeIndented!({
+            foreach(msg; msgs)
+            {
+                msg.writePrivIfaceMsg(sf);
+            }
+        });
+        sf.write("];");
+    }
+
+    void writePrivIfacePopulate(SourceFile sf)
+    {
+        writePrivIfaceMsgs(sf, requests, "requests");
+        writePrivIfaceMsgs(sf, events, "events");
+        immutable memb = format("ifaces[%s]", indexSymbol(name));
+        sf.write(`%s.name = "%s";`, memb, name);
+        sf.write("%s.version_ = %s;", memb, ver);
+
+        if (requests.length)
+        {
+            sf.write("%s.method_count = %d;", memb, requests.length);
+            sf.write("%s.methods = %s_requests.ptr;", memb, name);
+        }
+        if (events.length)
+        {
+            sf.write("%s.event_count = %d;", memb, events.length);
+            sf.write("%s.events = %s_events.ptr;", memb, name);
+        }
     }
 }
 
@@ -398,7 +527,6 @@ class Protocol
 
     this(Element el)
     {
-        import std.exception : enforce;
         enforce(el.tagName == "protocol");
         name = el.getAttribute("name");
         foreach (cr; el.getElementsByTagName("copyright"))
@@ -436,24 +564,98 @@ class Protocol
     {
         printHeader(sf, opt);
         sf.write("import wayland.client.core;");
-        sf.write("import wayland.util;");
         sf.write("import wayland.native.client;");
+        sf.write("import wayland.native.util;");
+        sf.write("import wayland.util;");
         foreach(iface; ifaces)
         {
             iface.writeClientCode(sf);
+            sf.write();
         }
 
         // writing private code
         sf.write("private");
         sf.writeBlock!({
-            foreach(iface; ifaces)
+            writePrivIfaces(sf);
+        });
+    }
+
+    void writePrivIfaces(SourceFile sf)
+    {
+        sf.write("immutable wl_interface[] wl_interfaces;");
+        sf.write();
+        foreach (i, iface; ifaces)
+        {
+            sf.write("enum %s = %d;", indexSymbol(iface.name), i);
+        }
+        sf.write();
+        sf.write("shared static this()");
+        sf.writeBlock!({
+            sf.write("auto ifaces = new wl_interface[%d];", ifaces.length);
+            sf.write();
+            writePrivMsgTypes(sf);
+            sf.write();
+            foreach (iface; ifaces)
             {
-                iface.writePrivClientCode(sf);
+                iface.writePrivIfacePopulate(sf);
+                sf.write();
+            }
+            sf.write("import std.exception : assumeUnique;");
+            sf.write("wl_interfaces = assumeUnique(ifaces);");
+        });
+    }
+
+    void writePrivMsgTypes(SourceFile sf)
+    {
+        immutable nullLength = ifaces
+            .map!(iface => iface.nullIfaceTypeLength)
+            .maxElement();
+        size_t typeIndex = 0;
+
+        sf.write("auto msgTypes = [");
+        sf.writeIndented!({
+            foreach(i; 0..nullLength)
+            {
+                sf.write("null,");
+            }
+            foreach (iface; ifaces)
+            {
+                foreach(msg; chain(iface.requests, iface.events))
+                {
+                    if (msg.ifaceTypesAllNull)
+                    {
+                        msg.ifaceTypeIndex = 0;
+                        continue;
+                    }
+                    msg.ifaceTypeIndex = nullLength + typeIndex;
+                    typeIndex += msg.args.length;
+                    foreach (arg; msg.args)
+                    {
+                        if (!arg.iface.empty &&
+                            (arg.type == ArgType.NewId ||
+                                arg.type == ArgType.Object))
+                        {
+                            sf.write("&ifaces[%s],", indexSymbol(arg.iface));
+                        }
+                        else
+                        {
+                            sf.write("null,");
+                        }
+                    }
+
+                }
             }
         });
+        sf.write("];");
     }
 }
 
+
+// for private wl_interface array
+string indexSymbol(in string name) pure
+{
+    return camelName(name, "index");
+}
 
 string validDName(in string name) pure
 {
@@ -603,6 +805,13 @@ void writeBlock(alias writeF)(SourceFile sf)
     writeF();
     sf.unindent();
     sf.write("}");
+}
+
+void writeIndented(alias writeF)(SourceFile sf)
+{
+    sf.indent();
+    writeF();
+    sf.unindent();
 }
 
 
