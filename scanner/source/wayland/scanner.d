@@ -796,7 +796,8 @@ string getElText(Element el)
 class SourceFile
 {
     File _output;
-    int _indentLev;
+    int _indentLev = 0;
+    bool _indentNext = true;
 
     invariant()
     {
@@ -806,7 +807,6 @@ class SourceFile
     this(File output)
     {
         _output = output;
-        _indentLev = 0;
     }
 
     @property File output()
@@ -829,9 +829,19 @@ class SourceFile
         _indentLev -= 1;
     }
 
+    void write(Args...)(string codeFmt, Args args)
+    {
+        immutable code = format(codeFmt, args);
+        immutable iStr = indentStr(_indentLev);
+        if (_indentNext) _output.write(iStr);
+        _output.write(code.replace("\n", "\n"~iStr));
+        _indentNext = false;
+    }
+
     void writeln()
     {
         _output.writeln();
+        _indentNext = true;
     }
 
     /++
@@ -841,10 +851,9 @@ class SourceFile
     {
         immutable code = format(codeFmt, args);
         immutable iStr = indentStr(_indentLev);
-        foreach (l; code.split("\n")) {
-            if (l.empty) _output.writeln();
-            else _output.writeln(iStr, l);
-        }
+        if (_indentNext) _output.write(iStr);
+        _output.writeln(code.replace("\n", "\n"~iStr));
+        _indentNext = true;
     }
 
     void writeComment(Args...)(string textFmt, Args args)
