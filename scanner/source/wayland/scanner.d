@@ -333,6 +333,33 @@ class Arg
                 return "int";
         }
     }
+
+    @property string paramName() const
+    {
+        return validDName(name);
+    }
+
+    @property string cCastExpr() const
+    {
+        final switch(type) {
+            case ArgType.Int:
+                return paramName;
+            case ArgType.UInt:
+                return paramName;
+            case ArgType.Fixed:
+                return format("%s.raw", paramName);
+            case ArgType.String:
+                return format("toStringz(%s)", paramName);
+            case ArgType.Object:
+                return format("%s.proxy", paramName);
+            case ArgType.NewId:
+                return paramName;
+            case ArgType.Array:
+                assert(false, "unimplemented");
+            case ArgType.Fd:
+                return paramName;
+        }
+    }
 }
 
 
@@ -454,8 +481,8 @@ class Message
     void writeClientRequestCode(SourceFile sf)
     {
         description.writeClientCode(sf);
+        // writing sig
         auto ret = clientReqReturn;
-
         immutable fstLine = format("%s %s(", ret[1], camelName(name));
         immutable indent = ' '.repeat().take(fstLine.length).array();
         sf.write(fstLine);
@@ -466,17 +493,53 @@ class Message
 
             string line;
             if (arg.type == ArgType.NewId && arg.iface.empty)
-                line = "const(WlInterface) iface, uint ver";
+                line = "immutable(WlInterface) iface, uint ver";
             else if (arg.type != ArgType.NewId)
-                line = format("%s %s", arg.dType, validDName(arg.name));
+                line = format("%s %s", arg.dType, arg.paramName);
 
             if (hadLine && line) sf.write(indent);
             sf.write(line);
             if (line.length) hadLine = true;
         }
         sf.writeln(")");
+        // writing body
         sf.bracedBlock!({
-            if (ret[0]) sf.writeln("return null;");
+            if (ret[0] && ret[0].iface.empty)
+            {
+                sf.writeln("return (cast(immutable(ClientWlInterface))iface)");
+                sf.writeln("    .makeProxy(wl_proxy_marshal_constructor_versioned(");
+                sf.write("        proxy, %sOpcode, iface.native, ver", camelName(name));
+            }
+            else if (ret[0])
+            {
+                sf.writeln("return new %s(wl_proxy_marshal_constructor(", ret[1]);
+                sf.write("    proxy, %sOpcode, %sInterface.native",
+                        camelName(name), camelName(ifaceName));
+            }
+            else
+            {
+                sf.writeln("wl_proxy_marshal(");
+                sf.write("    proxy, %sOpcode", camelName(name));
+            }
+            foreach (arg; args)
+            {
+                if (arg.type == ArgType.NewId)
+                {
+                    if (arg.iface.empty)
+                        sf.write(", iface.native.name, ver");
+                    sf.write(", null");
+                }
+                else
+                {
+                    sf.write(", %s", arg.cCastExpr);
+                }
+            }
+            sf.writeln();
+            if (ret[0] && ret[0].iface.empty)
+                sf.writeln("    )");
+            else if (ret[0])
+                sf.write(")");
+            sf.writeln(");");
         });
     }
 
@@ -719,6 +782,8 @@ class Protocol
         sf.writeln("import wayland.native.client;");
         sf.writeln("import wayland.native.util;");
         sf.writeln("import wayland.util;");
+        sf.writeln();
+        sf.writeln("import std.string : toStringz;");
         sf.writeln();
         foreach(iface; ifaces)
         {
