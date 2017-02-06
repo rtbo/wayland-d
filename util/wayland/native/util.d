@@ -103,7 +103,7 @@ struct wl_message
 	/** Message signature */
 	const(char)* signature;
 	/** Object argument interfaces */
-	const(wl_interface)** types;
+	const(wl_interface*)* types;
 }
 
 /**
@@ -156,17 +156,17 @@ extern(C)
 struct wl_interface
 {
 	/** Interface name */
-	const char *name;
+	const(char)* name;
 	/** Interface version */
 	int version_;
 	/** Number of methods (requests) */
 	int method_count;
 	/** Method (request) signatures */
-	const(wl_message) *methods;
+	const(wl_message)* methods;
 	/** Number of events */
 	int event_count;
 	/** Event signatures */
-	const(wl_message) *events;
+	const(wl_message)* events;
 }
 
 /** \class wl_list
