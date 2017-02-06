@@ -15,6 +15,7 @@ import std.format;
 import std.getopt;
 import std.range;
 import std.stdio;
+import std.typecons;
 import std.uni;
 
 enum scannerVersion = "v0.0.1";
@@ -288,7 +289,6 @@ class Arg
         enforce(!nullable || isNullable(type));
     }
 
-
     @property string cType() const
     {
         final switch(type) {
@@ -306,6 +306,29 @@ class Arg
                 return "uint";
             case ArgType.Array:
                 return "wl_array*";
+            case ArgType.Fd:
+                return "int";
+        }
+    }
+
+    @property string dType() const
+    {
+        final switch(type) {
+            case ArgType.Int:
+                return "int";
+            case ArgType.UInt:
+                return "uint";
+            case ArgType.Fixed:
+                return "WlFixed";
+            case ArgType.String:
+                return "string";
+            case ArgType.Object:
+                enforce(iface.length);
+                return titleCamelName(iface);
+            case ArgType.NewId:
+                return "uint";
+            case ArgType.Array:
+                return "ubyte[]"; // ?? let's check this later
             case ArgType.Fd:
                 return "int";
         }
@@ -402,6 +425,59 @@ class Message
             }
         }
         return sig;
+    }
+
+    @property Tuple!(Arg, string) clientReqReturn()
+    {
+        Arg ret;
+        string retStr;
+        foreach (arg; args)
+        {
+            if (arg.type == ArgType.NewId)
+            {
+                enforce(!ret, "more than 1 new-id for a request");
+                ret = arg;
+                if (arg.iface.length)
+                {
+                    retStr = titleCamelName(arg.iface);
+                }
+                else
+                {
+                    retStr = "WlProxy";
+                }
+            }
+        }
+        if (!ret) retStr = "void";
+        return tuple(ret, retStr);
+    }
+
+    void writeClientRequestCode(SourceFile sf)
+    {
+        description.writeClientCode(sf);
+        auto ret = clientReqReturn;
+
+        immutable fstLine = format("%s %s(", ret[1], camelName(name));
+        immutable indent = ' '.repeat().take(fstLine.length).array();
+        sf.write(fstLine);
+        bool hadLine;
+        foreach (i, arg; args)
+        {
+            if (hadLine) sf.writeln(","); // write previous comma
+
+            string line;
+            if (arg.type == ArgType.NewId && arg.iface.empty)
+                line = "const(WlInterface) iface, uint ver";
+            else if (arg.type != ArgType.NewId)
+                line = format("%s %s", arg.dType, validDName(arg.name));
+
+            if (hadLine && line) sf.write(indent);
+            sf.write(line);
+            if (line.length) hadLine = true;
+        }
+        sf.writeln(")");
+        sf.bracedBlock!({
+            if (ret[0]) sf.writeln("return null;");
+        });
     }
 
     void writePrivIfaceMsg(SourceFile sf)
@@ -525,6 +601,11 @@ class Interface : ClientCodeGen
             foreach (en; enums)
             {
                 en.writeClientCode(sf);
+                sf.writeln();
+            }
+            foreach (msg; requests)
+            {
+                msg.writeClientRequestCode(sf);
                 sf.writeln();
             }
             if (events.length)
