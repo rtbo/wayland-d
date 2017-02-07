@@ -523,6 +523,7 @@ class Message
             }
             else
             {
+                if (isDtor) sf.writeln("super.destroyNotify();");
                 sf.writeln("wl_proxy_marshal(");
                 sf.write("    proxy, %sOpcode", camelName(name));
             }
@@ -668,6 +669,7 @@ class Interface : ClientCodeGen
             sf.writeln();
             sf.writeln("void destroy()");
             sf.bracedBlock!({
+                sf.writeln("super.destroyNotify();");
                 sf.writeln("wl_proxy_destroy(proxy);");
             });
         }
