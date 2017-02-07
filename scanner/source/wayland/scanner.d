@@ -960,9 +960,10 @@ string validDName(in string name) pure
 {
     switch (name)
     {
+        case "class": return "class_";
+        case "default": return "default_";
         case "interface": return "iface";
         case "version": return "version_";
-        case "default": return "default_";
         default:
         {
             if (name[0] >= '0' && name[0] <= '9') return "_" ~ name;
