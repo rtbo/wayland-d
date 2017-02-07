@@ -829,6 +829,7 @@ class Protocol
             sf.writeln("immutable WlInterface %sInterface;", camelName(iface.name));
         }
         sf.writeln();
+
         foreach(iface; ifaces)
         {
             iface.writeClientCode(sf);
@@ -836,12 +837,14 @@ class Protocol
         }
 
         // writing private code
-        sf.writeln("private");
+        sf.writeln("private:");
+        sf.writeln();
+
+        writePrivIfaces(sf);
+        sf.writeln();
+
+        sf.writeln("extern(C) nothrow");
         sf.bracedBlock!({
-            writePrivIfaces(sf);
-            sf.writeln();
-            sf.writeln("extern(C) nothrow:");
-            sf.writeln();
             foreach(iface; ifaces)
             {
                 iface.writePrivListener(sf);
