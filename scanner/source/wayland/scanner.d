@@ -341,7 +341,7 @@ class Arg
 
     @property string paramName() const
     {
-        return validDName(name);
+        return validDName(camelName(name));
     }
 
     @property string cCastExpr() const
@@ -558,7 +558,7 @@ class Message
         foreach(i, arg; args)
         {
             eol = i == args.length-1 ? ");" : ",";
-            sf.writeln("%s%s %s%s", indent, arg.dType, validDName(arg.name), eol);
+            sf.writeln("%s%s %s%s", indent, arg.dType, arg.paramName, eol);
         }
     }
 
