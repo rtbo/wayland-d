@@ -245,8 +245,9 @@ class Arg
     string name;
     string summary;
     string iface;
-    bool nullable;
     ArgType type;
+    string enumName;
+    bool nullable;
 
     this (Element el)
     {
@@ -254,6 +255,7 @@ class Arg
         name = el.getAttribute("name");
         summary = el.getAttribute("summary");
         iface = el.getAttribute("interface");
+        enumName = el.getAttribute("enum");
         switch (el.getAttribute("type"))
         {
             case "int":
@@ -317,7 +319,8 @@ class Arg
             case ArgType.Int:
                 return "int";
             case ArgType.UInt:
-                return "uint";
+                if (enumName.empty) return "uint";
+                else return qualfiedTypeName(enumName);
             case ArgType.Fixed:
                 return "WlFixed";
             case ArgType.String:
@@ -1173,6 +1176,14 @@ string titleCamelName(in string[] comps...) pure
 string indentStr(int indent) pure
 {
     return "    ".replicate(indent);
+}
+
+string qualfiedTypeName(in string name) pure
+{
+    return name
+            .splitter(".")
+            .map!(part => titleCamelName(part))
+            .join(".");
 }
 
 string splitLinesForWidth(string input, in string suffix, in string indent, in size_t width=80) pure
