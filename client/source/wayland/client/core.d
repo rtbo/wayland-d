@@ -135,7 +135,7 @@ abstract class WlProxy
         return _proxy;
     }
 
-    abstract @property uint version_();
+    abstract @property uint ver();
 }
 
 immutable abstract class ClientWlInterface : WlInterface

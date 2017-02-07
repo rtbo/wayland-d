@@ -8,7 +8,7 @@ void main()
 	auto wl = WlDisplay.connect();
 	if (wl)
 	{
-		writeln("connected to wayland display version ", wl.version_);
+		writeln("connected to wayland display version ", wl.ver);
 		wl.disconnect();
 		writeln("disconnected");
 	}

@@ -631,7 +631,7 @@ class Interface : ClientCodeGen
 
     void writeVersionCode(SourceFile sf)
     {
-        sf.writeln("override @property uint version_()");
+        sf.writeln("override @property uint ver()");
         sf.bracedBlock!({
             sf.writeln("return wl_proxy_get_version(proxy);");
         });
