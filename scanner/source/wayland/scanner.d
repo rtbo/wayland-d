@@ -637,6 +637,23 @@ class Interface : ClientCodeGen
         });
     }
 
+    void writeClientDtorCode(SourceFile sf)
+    {
+        immutable hasDtor = requests.canFind!(rq => rq.isDtor);
+        immutable hasDestroy = requests.canFind!(rq => rq.name == "destroy");
+
+        enforce(!hasDestroy || hasDtor);
+
+        if (!hasDestroy && name != "wl_display")
+        {
+            sf.writeln("void destroy()");
+            sf.bracedBlock!({
+                sf.writeln("wl_proxy_destroy(proxy);");
+            });
+            sf.writeln();
+        }
+    }
+
     override void writeClientCode(SourceFile sf)
     {
         description.writeClientCode(sf);
@@ -666,6 +683,7 @@ class Interface : ClientCodeGen
                 en.writeClientCode(sf);
                 sf.writeln();
             }
+            writeClientDtorCode(sf);
             foreach (msg; requests)
             {
                 msg.writeClientRequestCode(sf);
