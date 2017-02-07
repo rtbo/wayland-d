@@ -323,8 +323,10 @@ class Arg
             case ArgType.String:
                 return "string";
             case ArgType.Object:
-                enforce(iface.length);
-                return titleCamelName(iface);
+                if (iface.length)
+                    return titleCamelName(iface);
+                else
+                    return "WlProxy";
             case ArgType.NewId:
                 return "uint";
             case ArgType.Array:
@@ -543,6 +545,20 @@ class Message
         });
     }
 
+    void writeClientEventSig(SourceFile sf)
+    {
+        description.writeClientCode(sf);
+        immutable fstLine = format("void %s(", validDName(name));
+        immutable indent = ' '.repeat().take(fstLine.length).array();
+        string eol = args.length ? "," : ");";
+        sf.writeln("%s%s %s%s", fstLine, titleCamelName(ifaceName), camelName(ifaceName), eol);
+        foreach(i, arg; args)
+        {
+            eol = i == args.length-1 ? ");" : ",";
+            sf.writeln("%s%s %s%s", indent, arg.dType, validDName(arg.name), eol);
+        }
+    }
+
     void writePrivIfaceMsg(SourceFile sf)
     {
         sf.writeln(
@@ -677,25 +693,28 @@ class Interface : ClientCodeGen
             writeConstants(sf);
             sf.writeln();
             writeVersionCode(sf);
-            sf.writeln();
             foreach (en; enums)
             {
-                en.writeClientCode(sf);
                 sf.writeln();
+                en.writeClientCode(sf);
             }
+            sf.writeln();
             writeClientDtorCode(sf);
             foreach (msg; requests)
             {
-                msg.writeClientRequestCode(sf);
                 sf.writeln();
+                msg.writeClientRequestCode(sf);
             }
             if (events.length)
             {
+                sf.writeln();
                 sf.writeln("/// interface listening to events issued from a %s", dName);
                 sf.writeln("interface Listener");
                 sf.bracedBlock!({
-                    foreach (ev; events)
+                    foreach (msg; events)
                     {
+                        sf.writeln();
+                        msg.writeClientEventSig(sf);
                     }
                 });
             }
