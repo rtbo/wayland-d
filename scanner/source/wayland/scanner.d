@@ -471,6 +471,11 @@ class Message
         return validDName(camelName(name));
     }
 
+    @property string cEvName()
+    {
+        return validDName(name);
+    }
+
     @property string signature() const
     {
         string sig;
@@ -632,7 +637,7 @@ class Message
     void writePrivListenerSig(SourceFile sf)
     {
         enum fstLine = "void function(";
-        immutable lstEol = format(") %s;", validDName(name));
+        immutable lstEol = format(") %s;", cEvName);
 
         immutable indent = ' '.repeat.take(fstLine.length).array();
         sf.writeln("%svoid* data,", fstLine);
@@ -838,6 +843,8 @@ class Interface : ClientCodeGen
                 sf.bracedBlock!({
                     sf.writeln("assert(!_listener);");
                     sf.writeln("_listener = listener;");
+                    sf.writeln("wl_proxy_add_listener(proxy, cast(void_func_t*)&the%sListener, null);",
+                            titleCamelName(name));
                 });
             }
         });
@@ -855,6 +862,16 @@ class Interface : ClientCodeGen
                 ev.writePrivListenerSig(sf);
             }
         });
+
+        sf.writeln();
+        immutable fstLine = format("__gshared the%sListener = %s_listener (", titleCamelName(name), name);
+        immutable indent = ' '.repeat(fstLine.length).array();
+        foreach (i, ev; events)
+        {
+            sf.writeln("%s&on_%s_%s%s", (i == 0 ? fstLine : indent),
+                                        name, ev.name,
+                                        (i == events.length-1) ? ");" : ",");
+        }
     }
 
     void writePrivListenerStubs(SourceFile sf)
