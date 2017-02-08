@@ -291,7 +291,7 @@ class Arg
         enforce(!nullable || isNullable(type));
     }
 
-    @property string cType() const
+    @property string reqCType() const
     {
         final switch(type) {
             case ArgType.Int:
@@ -304,6 +304,29 @@ class Arg
                 return "const(char)*";
             case ArgType.Object:
                 return "wl_proxy*";
+            case ArgType.NewId:
+                return "uint";
+            case ArgType.Array:
+                return "wl_array*";
+            case ArgType.Fd:
+                return "int";
+        }
+    }
+
+    @property string evCType() const
+    {
+        final switch(type) {
+            case ArgType.Int:
+                return "int";
+            case ArgType.UInt:
+                return "uint";
+            case ArgType.Fixed:
+                return "wl_fixed_t";
+            case ArgType.String:
+                return "const(char)*";
+            case ArgType.Object:
+                if (iface.empty) return "void*";
+                else return "wl_proxy*";
             case ArgType.NewId:
                 return "uint";
             case ArgType.Array:
@@ -333,11 +356,12 @@ class Arg
             case ArgType.NewId:
                 return "uint";
             case ArgType.Array:
-                return "ubyte[]"; // ?? let's check this later
+                return "wl_array*"; // ?? let's check this later
             case ArgType.Fd:
                 return "int";
         }
     }
+
 
     @property string paramName() const
     {
@@ -360,7 +384,36 @@ class Arg
             case ArgType.NewId:
                 return paramName;
             case ArgType.Array:
-                assert(false, "unimplemented");
+                return paramName;
+            case ArgType.Fd:
+                return paramName;
+        }
+    }
+
+    string dCastExpr(string parentIface) const
+    {
+        final switch(type) {
+            case ArgType.Int:
+                return paramName;
+            case ArgType.UInt:
+                if (enumName.empty) return paramName;
+                else
+                {
+                    immutable en = (parentIface.empty || enumName.canFind('.')) ?
+                            enumName : format("%s.%s", parentIface, enumName);
+                    return format("cast(%s)%s", qualfiedTypeName(en), paramName);
+                }
+            case ArgType.Fixed:
+                return format("WlFixed(%s)", paramName);
+            case ArgType.String:
+                return format("fromStringz(%s).idup", paramName);
+            case ArgType.Object:
+                //return format("%s.proxy", paramName);
+                return "null"; // FIXME!
+            case ArgType.NewId:
+                return paramName;
+            case ArgType.Array:
+                return paramName;
             case ArgType.Fd:
                 return paramName;
         }
@@ -411,6 +464,11 @@ class Message
     @property size_t nullIfaceTypeLength() const
     {
         return argIfaceTypes.empty ? args.length : 0;
+    }
+
+    @property string dEvName()
+    {
+        return validDName(camelName(name));
     }
 
     @property string signature() const
@@ -552,7 +610,7 @@ class Message
     void writeClientEventSig(SourceFile sf)
     {
         description.writeClientCode(sf);
-        immutable fstLine = format("void %s(", validDName(name));
+        immutable fstLine = format("void %s(", dEvName);
         immutable indent = ' '.repeat().take(fstLine.length).array();
         string eol = args.length ? "," : ");";
         sf.writeln("%s%s %s%s", fstLine, titleCamelName(ifaceName), camelName(ifaceName), eol);
@@ -571,7 +629,7 @@ class Message
         );
     }
 
-    void writePrivListenerFunc(SourceFile sf)
+    void writePrivListenerSig(SourceFile sf)
     {
         enum fstLine = "void function(";
         immutable lstEol = format(") %s;", validDName(name));
@@ -582,15 +640,34 @@ class Message
         sf.writeln("%swl_proxy* proxy%s", indent, eol);
         foreach(i, arg; args)
         {
-            auto ct = arg.cType;
-            if (arg.type == ArgType.Object && arg.iface.empty)
-            {
-                ct = "void*";
-                stderr.writeln("check if wl_proxy can be used");
-            }
             eol = i == args.length-1 ? lstEol : ",";
-            sf.writeln("%s%s %s%s", indent, arg.cType, validDName(camelName(arg.name)), eol);
+            sf.writeln("%s%s %s%s", indent, arg.evCType, arg.paramName, eol);
         }
+    }
+
+    void writePrivListenerStub(SourceFile sf)
+    {
+        immutable fstLine = format("void on_%s_%s(", ifaceName, name);
+        immutable indent = ' '.repeat.take(fstLine.length).array();
+        sf.writeln("%svoid* data,", fstLine);
+        auto eol = args.empty ? ")" : ",";
+        sf.writeln("%swl_proxy* proxy%s", indent, eol);
+        foreach(i, arg; args)
+        {
+            eol = i == args.length-1 ? ")" : ",";
+            sf.writeln("%s%s %s%s", indent, arg.evCType, arg.paramName, eol);
+        }
+        sf.bracedBlock!({
+            sf.writeln("auto _p = enforce(cast(%s)WlProxy.get(proxy));", titleCamelName(ifaceName));
+            string sep = args.length ? ", " : "";
+            sf.write("_p.listener.%s(_p%s", dEvName, sep);
+            foreach (i, arg; args)
+            {
+                sep = (i == args.length-1) ? "" : ", ";
+                sf.write("%s%s", arg.dCastExpr(ifaceName), sep);
+            }
+            sf.writeln(");");
+        });
     }
 }
 
@@ -721,6 +798,23 @@ class Interface : ClientCodeGen
                         msg.writeClientEventSig(sf);
                     }
                 });
+                sf.writeln();
+                sf.writeln("private Listener _listener;");
+                sf.writeln();
+                sf.writeln("/// Get the listener bound to this object.");
+                sf.writeln("@property Listener listener()");
+                sf.bracedBlock!({
+                    sf.writeln("return _listener;");
+                });
+                sf.writeln();
+                sf.writeln("/// Bind the supplied listener to this object and start listening.");
+                sf.writeln("///");
+                sf.writeln("/// It is an error to rebind an already bound listener.");
+                sf.writeln("@property void listener(Listener listener)");
+                sf.bracedBlock!({
+                    sf.writeln("assert(!_listener);");
+                    sf.writeln("_listener = listener;");
+                });
             }
         });
     }
@@ -733,10 +827,18 @@ class Interface : ClientCodeGen
         sf.bracedBlock!({
             foreach(ev; events)
             {
-                ev.writePrivListenerFunc(sf);
+                ev.writePrivListenerSig(sf);
             }
         });
         sf.writeln();
+    }
+
+    void writePrivListenerStubs(SourceFile sf)
+    {
+        foreach(ev; events)
+        {
+            ev.writePrivListenerStub(sf);
+        }
     }
 
     void writePrivIfaceMsgs(SourceFile sf, Message[] msgs, in string suffix)
@@ -824,7 +926,8 @@ class Protocol
         sf.writeln("import wayland.native.util;");
         sf.writeln("import wayland.util;");
         sf.writeln();
-        sf.writeln("import std.string : toStringz;");
+        sf.writeln("import std.exception : enforce;");
+        sf.writeln("import std.string : fromStringz, toStringz;");
         sf.writeln();
         foreach(iface; ifaces)
         {
@@ -852,6 +955,12 @@ class Protocol
                 iface.writePrivListener(sf);
             }
         });
+
+        sf.writeln();
+        foreach(iface; ifaces)
+        {
+            iface.writePrivListenerStubs(sf);
+        }
     }
 
     void writePrivIfaces(SourceFile sf)
