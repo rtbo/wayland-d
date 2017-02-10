@@ -34,6 +34,12 @@ immutable abstract class WlInterface
     {
         return _native;
     }
+
+    @property string name() immutable
+    {
+        import std.string : fromStringz;
+        return fromStringz(_native.name);
+    }
 }
 
 
