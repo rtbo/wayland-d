@@ -582,7 +582,7 @@ class Message
             {
                 sf.writeln("return new %s(wl_proxy_marshal_constructor(", ret[1]);
                 sf.write("    proxy, %sOpcode, %sInterface.native",
-                        camelName(name), camelName(ifaceName));
+                        camelName(name), camelName(ret[0].iface));
             }
             else
             {
