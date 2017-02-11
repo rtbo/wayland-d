@@ -776,14 +776,6 @@ class Interface : ClientCodeGen
         }
     }
 
-    void writeVersionCode(SourceFile sf)
-    {
-        sf.writeln("override @property uint ver()");
-        sf.bracedBlock!({
-            sf.writeln("return wl_proxy_get_version(proxy);");
-        });
-    }
-
     void writeClientDtorCode(SourceFile sf)
     {
         immutable hasDtor = requests.canFind!(rq => rq.isDtor);
@@ -838,8 +830,6 @@ class Interface : ClientCodeGen
                     msg.writeClientEventDgAlias(sf);
                 }
             }
-            sf.writeln();
-            writeVersionCode(sf);
             foreach (en; enums)
             {
                 sf.writeln();

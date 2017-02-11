@@ -154,7 +154,24 @@ abstract class WlProxy
         return _proxy;
     }
 
-    abstract @property uint ver();
+    /// Get the protocol version of WlDisplay.
+    final @property uint ver()
+    {
+        return wl_proxy_get_version(proxy);
+    }
+
+    /// Get the id assigned to this object.
+    final @property uint id()
+    {
+        return wl_proxy_get_id(proxy);
+    }
+
+    /// Get the class of this object.
+    final @property string class_()
+    {
+        import std.string : fromStringz;
+        return fromStringz(wl_proxy_get_class(proxy)).idup;
+    }
 }
 
 immutable abstract class ClientWlInterface : WlInterface
