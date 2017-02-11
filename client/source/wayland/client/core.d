@@ -1,3 +1,4 @@
+// Copyright © 2017 Rémi Thebault
 module wayland.client.core;
 
 import wayland.client.protocol : WlDisplay;

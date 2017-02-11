@@ -1,4 +1,4 @@
-// Copyright (c) Rémi Thebault
+// Copyright © 2017 Rémi Thebault
 /// bindings to wayland-util.h
 module wayland.native.util;
 

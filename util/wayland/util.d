@@ -1,3 +1,4 @@
+// Copyright © 2017 Rémi Thebault
 module wayland.util;
 
 import wayland.native.util;

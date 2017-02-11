@@ -1,3 +1,4 @@
+// Copyright © 2017 Rémi Thebault
 module hello_helper;
 
 import std.exception : enforce;
