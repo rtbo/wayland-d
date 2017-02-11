@@ -408,8 +408,11 @@ class Arg
             case ArgType.String:
                 return format("fromStringz(%s).idup", paramName);
             case ArgType.Object:
-                //return format("%s.proxy", paramName);
-                return "null"; // FIXME!
+                auto expr = format("WlProxy.get(%s)", paramName);
+                if (iface)
+                    return format("cast(%s)%s", titleCamelName(iface), expr);
+                else
+                    return expr;
             case ArgType.NewId:
                 return paramName;
             case ArgType.Array:
