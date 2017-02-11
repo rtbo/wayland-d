@@ -57,7 +57,7 @@ class Hello
 		display = enforce(WlDisplay.connect());
 		auto reg = display.getRegistry();
 
-		reg.global = &regGlobal;
+		reg.onGlobal = &regGlobal;
 
 		display.roundtrip();
 		reg.destroy();
@@ -89,8 +89,8 @@ class Hello
 				name, wlSeatInterface, min(ver, 2)
 			);
 			pointer = seat.getPointer();
-			pointer.enter = &pointerEnter;
-			pointer.button = &pointerButton;
+			pointer.onEnter = &pointerEnter;
+			pointer.onButton = &pointerButton;
 		}
 	}
 
@@ -112,7 +112,7 @@ class Hello
 		scope(failure) surf.destroy();
 
 		shSurf = shell.getShellSurface(surf);
-		shSurf.ping = (WlShellSurface wlShSurf, uint serial)
+		shSurf.onPing = (WlShellSurface wlShSurf, uint serial)
 		{
 			wlShSurf.pong(serial);
 		};

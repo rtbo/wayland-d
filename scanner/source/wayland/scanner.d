@@ -468,12 +468,12 @@ class Message
 
     @property string dEvName()
     {
-        return validDName(camelName(name));
+        return "on" ~ titleCamelName(name);
     }
 
     @property string dEvDgType()
     {
-        return titleCamelName(name) ~ "Dg";
+        return "On" ~ titleCamelName(name) ~ "Dg";
     }
 
     @property string cEvName()
