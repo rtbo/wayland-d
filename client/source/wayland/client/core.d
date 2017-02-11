@@ -138,6 +138,7 @@ abstract class WlProxy
     protected void destroyNotify()
     {
         proxyCache.remove(_proxy);
+        _proxy = null;
     }
 
     static WlProxy get(wl_proxy* proxy)
