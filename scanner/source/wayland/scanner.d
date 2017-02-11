@@ -663,8 +663,8 @@ class Message
             sf.writeln("%s%s %s%s", indent, arg.evCType, arg.paramName, eol);
         }
         sf.bracedBlock!({
-            sf.writeln("try");
-            sf.bracedBlock!({
+            sf.writeln("nothrowFnWrapper!({");
+            sf.indentedBlock!({
                 sf.writeln("auto _p = WlProxy.get(proxy);");
                 sf.writeln("assert(_p, \"listener stub without proxy\");");
                 sf.writeln("auto _i = cast(%s)_p;", titleCamelName(ifaceName));
@@ -680,22 +680,7 @@ class Message
                 }
                 sf.writeln(");");
             });
-            sf.writeln("catch(Exception ex)");
-            sf.bracedBlock!({
-                sf.writeln("import std.exception : collectException;");
-                sf.writeln("import std.stdio : stderr;");
-                sf.writeln("collectException(stderr.writeln(\"wayland-d: error " ~
-                        "in listener stub: \"~ex.msg));");
-            });
-            sf.writeln("catch(Throwable err)");
-            sf.bracedBlock!({
-                sf.writeln("import core.stdc.stdlib : exit;");
-                sf.writeln("import std.exception : collectException;");
-                sf.writeln("import std.stdio : stderr;");
-                sf.writeln("collectException(stderr.writeln(\"wayland-d: aborting " ~
-                        "due to error in listener stub: \"~err.msg));");
-                sf.writeln("exit(1);");
-            });
+            sf.writeln("});");
         });
     }
 }

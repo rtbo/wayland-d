@@ -42,6 +42,37 @@ immutable abstract class WlInterface
     }
 }
 
+/+
+ +  Wraps a function literal into a try-catch statement.
+ +
+ +  Use this in functions called by C as exception cannot propagate there.
+ +  The try-catch statement will print a warning if an exception is thrown.
+ +  The try-catch statement will terminate runtime and exit program if an error is thrown.
+ +/
+void nothrowFnWrapper(alias fn)() nothrow
+{
+    try
+    {
+        fn();
+    }
+    catch(Exception ex)
+    {
+        import std.exception : collectException;
+        import std.stdio : stderr;
+        collectException(stderr.writeln("wayland-d: error in listener stub: "~ex.msg));
+    }
+    catch(Throwable err)
+    {
+        import core.runtime : Runtime;
+        import core.stdc.stdlib : exit;
+        import core.runtime : Runtime;
+        import std.exception : collectException;
+        import std.stdio : stderr;
+        collectException(stderr.writeln("wayland-d: aborting due to error in listener stub: "~err.msg));
+        collectException(Runtime.terminate());
+        exit(1);
+    }
+}
 
 /**
  * Fixed-point number
