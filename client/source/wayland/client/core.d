@@ -45,7 +45,8 @@ abstract class WlDisplayBase : WlProxy, Native!wl_display
 
     final void disconnect()
     {
-        return wl_display_disconnect(native);
+        wl_display_disconnect(native);
+        WlProxy.destroyNotify();
     }
 
     final int getFd()
