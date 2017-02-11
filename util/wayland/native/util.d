@@ -646,9 +646,12 @@ extern(C) nothrow
     *
     * \return 0 on success, or -1 on failure
     */
-    alias wl_dispatcher_func_t = int function (const(void)*, void *, uint,
-                        const(wl_message) *,
-                        wl_argument *);
+    alias wl_dispatcher_func_t = int function (
+                const(void)* impl,
+                void* target,
+                uint opcode,
+                const(wl_message)* msg,
+                wl_argument* args);
 
     /**
     * Log function type alias
