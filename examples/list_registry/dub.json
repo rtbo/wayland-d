@@ -1,0 +1,15 @@
+{
+	"name": "list_registry",
+	"targetType": "executable",
+	"authors": [
+		"Rémi Thebault"
+	],
+	"description": "Wayland list_registry client example.",
+	"copyright": "Copyright © 2017, Rémi Thebault",
+	"license": "MIT",
+	"dependencies": {
+		"wayland-d:client": {
+			"path": "../../client"
+		}
+	}
+}
