@@ -12,6 +12,7 @@
 		"./client/",
 		"./server/",
 
-		"./examples/connect/"
+		"./examples/connect/",
+		"./examples/hello/"
 	]
 }

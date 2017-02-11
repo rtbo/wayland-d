@@ -1,0 +1,20 @@
+{
+	"name": "hello",
+	"targetType": "executable",
+	"authors": [
+		"Rémi Thebault"
+	],
+	"description": "Wayland hello client example.",
+	"copyright": "Copyright © 2017, Rémi Thebault",
+	"license": "MIT",
+	"preGenerateCommands": [
+		"python $PACKAGE_DIR/images/convert.py $PACKAGE_DIR",
+		"mkdir -p $PACKAGE_DIR/views",
+		"cat $PACKAGE_DIR/images/window.bin $PACKAGE_DIR/images/fish.bin > $PACKAGE_DIR/views/images.bin"
+	],
+	"dependencies": {
+		"wayland-d:client": {
+			"path": "../../client"
+		}
+	}
+}
