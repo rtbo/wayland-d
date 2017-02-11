@@ -32,7 +32,7 @@ int main()
 	return 0;
 }
 
-class Hello : WlPointer.Listener
+class Hello
 {
 	WlDisplay display;
 	WlCompositor compositor;
@@ -57,42 +57,41 @@ class Hello : WlPointer.Listener
 		display = enforce(WlDisplay.connect());
 		auto reg = display.getRegistry();
 
-		reg.listener = new class WlRegistry.Listener {
-			override void global(WlRegistry, uint name, string iface, uint ver)
-			{
-				if(iface == wlCompositorInterface.name)
-				{
-					compositor = cast(WlCompositor)reg.bind(
-						name, wlCompositorInterface, min(ver, 4)
-					);
-				}
-				else if(iface == wlShmInterface.name)
-				{
-					shm = cast(WlShm)reg.bind(
-						name, wlShmInterface, min(ver, 1)
-					);
-				}
-				else if(iface == wlShellInterface.name)
-				{
-					shell = cast(WlShell)reg.bind(
-						name, wlShellInterface, min(ver, 1)
-					);
-				}
-				else if(iface == wlSeatInterface.name)
-				{
-					seat = cast(WlSeat)reg.bind(
-						name, wlSeatInterface, min(ver, 2)
-					);
-					pointer = seat.getPointer();
-					pointer.listener = this.outer;
-				}
-			}
-			override void globalRemove(WlRegistry, uint)
-			{}
-		};
+		reg.global = &regGlobal;
 
 		display.roundtrip();
 		reg.destroy();
+	}
+
+	void regGlobal(WlRegistry reg, uint name, string iface, uint ver)
+	{
+		if(iface == wlCompositorInterface.name)
+		{
+			compositor = cast(WlCompositor)reg.bind(
+				name, wlCompositorInterface, min(ver, 4)
+			);
+		}
+		else if(iface == wlShmInterface.name)
+		{
+			shm = cast(WlShm)reg.bind(
+				name, wlShmInterface, min(ver, 1)
+			);
+		}
+		else if(iface == wlShellInterface.name)
+		{
+			shell = cast(WlShell)reg.bind(
+				name, wlShellInterface, min(ver, 1)
+			);
+		}
+		else if(iface == wlSeatInterface.name)
+		{
+			seat = cast(WlSeat)reg.bind(
+				name, wlSeatInterface, min(ver, 2)
+			);
+			pointer = seat.getPointer();
+			pointer.enter = &pointerEnter;
+			pointer.button = &pointerButton;
+		}
 	}
 
 	void makeMemPool(immutable(ubyte)[] imgData)
@@ -113,21 +112,11 @@ class Hello : WlPointer.Listener
 		scope(failure) surf.destroy();
 
 		shSurf = shell.getShellSurface(surf);
-		shSurf.listener = new class WlShellSurface.Listener
+		shSurf.ping = (WlShellSurface wlShSurf, uint serial)
 		{
-			override void ping(WlShellSurface wlShellSurface, uint serial)
-			{
-				wlShellSurface.pong(serial);
-			}
-
-			override void configure(WlShellSurface,
-									WlShellSurface.Resize edges,
-									int width, int height)
-			{}
-
-			void popupDone(WlShellSurface)
-			{}
+			wlShSurf.pong(serial);
 		};
+
 		shSurf.setToplevel();
 
 		cursorSurf = enforce(compositor.createSurface());
@@ -147,34 +136,19 @@ class Hello : WlPointer.Listener
 		surf.commit();
 	}
 
-	override void enter(WlPointer pointer, uint serial, WlSurface surface,
+	void pointerEnter(WlPointer pointer, uint serial, WlSurface surface,
 						WlFixed surfaceX, WlFixed surfaceY)
 	{
 		cursorSurf.attach(cursorBuf, 0, 0);
 		cursorSurf.commit();
 		pointer.setCursor(serial, cursorSurf, cursorHotSpotX, cursorHotSpotY);
 	}
-	override void leave(WlPointer, uint serial, WlSurface surface)
-	{
 
-	}
-	override void motion(WlPointer, uint time, WlFixed surfaceX, WlFixed surfaceY)
-	{
-
-	}
-	override void button(WlPointer, uint serial, uint time, uint button,
+	void pointerButton(WlPointer, uint serial, uint time, uint button,
 						WlPointer.ButtonState state)
 	{
 		doneFlag = true;
 	}
-	override void axis(WlPointer, uint time, WlPointer.Axis axis, WlFixed value)
-	{
-
-	}
-	override void frame(WlPointer) {}
-	override void axisSource(WlPointer, WlPointer.AxisSource axisSource) {}
-	override void axisStop(WlPointer, uint time, WlPointer.Axis axis) {}
-	override void axisDiscrete(WlPointer, WlPointer.Axis axis, int discrete) {}
 
 	void loop()
 	{

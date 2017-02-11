@@ -471,6 +471,11 @@ class Message
         return validDName(camelName(name));
     }
 
+    @property string dEvDgType()
+    {
+        return titleCamelName(name) ~ "Dg";
+    }
+
     @property string cEvName()
     {
         return validDName(name);
@@ -612,11 +617,10 @@ class Message
         });
     }
 
-    void writeClientEventSig(SourceFile sf)
+    void writeClientEventDgAlias(SourceFile sf)
     {
-        description.writeClientCode(sf);
-        immutable fstLine = format("void %s(", dEvName);
-        immutable indent = ' '.repeat().take(fstLine.length).array();
+        immutable fstLine = format("alias %s = void delegate (", dEvDgType);
+        immutable indent = ' '.repeat(fstLine.length).array();
         string eol = args.length ? "," : ");";
         sf.writeln("%s%s %s%s", fstLine, titleCamelName(ifaceName), camelName(ifaceName), eol);
         foreach(i, arg; args)
@@ -624,6 +628,15 @@ class Message
             eol = i == args.length-1 ? ");" : ",";
             sf.writeln("%s%s %s%s", indent, arg.dType, arg.paramName, eol);
         }
+    }
+
+    void writeClientEventDgAccessor(SourceFile sf)
+    {
+        description.writeClientCode(sf);
+        sf.writeln("@property void %s(%s dg)", dEvName, dEvDgType);
+        sf.bracedBlock!({
+            sf.writeln("_%s = dg;", dEvName);
+        });
     }
 
     void writePrivIfaceMsg(SourceFile sf)
@@ -669,16 +682,18 @@ class Message
                 sf.writeln("assert(_p, \"listener stub without proxy\");");
                 sf.writeln("auto _i = cast(%s)_p;", titleCamelName(ifaceName));
                 sf.writeln("assert(_i, \"listener stub proxy is not %s\");", titleCamelName(ifaceName));
-                sf.writeln("assert(_i.listener, \"listener stub proxy is not set.\");");
+                sf.writeln("if (_i._%s)", dEvName);
+                sf.bracedBlock!({
+                    string sep = args.length ? ", " : "";
+                    sf.write("_i._%s(_i%s", dEvName, sep);
+                    foreach (i, arg; args)
+                    {
+                        sep = (i == args.length-1) ? "" : ", ";
+                        sf.write("%s%s", arg.dCastExpr(ifaceName), sep);
+                    }
+                    sf.writeln(");");
+                });
 
-                string sep = args.length ? ", " : "";
-                sf.write("_i.listener.%s(_i%s", dEvName, sep);
-                foreach (i, arg; args)
-                {
-                    sep = (i == args.length-1) ? "" : ", ";
-                    sf.write("%s%s", arg.dCastExpr(ifaceName), sep);
-                }
-                sf.writeln(");");
             });
             sf.writeln("});");
         });
@@ -718,6 +733,11 @@ class Interface : ClientCodeGen
     @property string dName() const
     {
         return titleCamelName(name);
+    }
+
+    @property bool writeEvents()
+    {
+        return events.length && name != "wl_display";
     }
 
     @property size_t nullIfaceTypeLength()
@@ -783,10 +803,25 @@ class Interface : ClientCodeGen
             );
             sf.bracedBlock!({
                 sf.writeln("super(native);");
+                if (writeEvents)
+                {
+                    sf.writeln(
+                        "wl_proxy_add_listener(proxy, cast(void_func_t*)&the%sListener, null);",
+                        titleCamelName(name)
+                    );
+                }
             });
 
             sf.writeln();
             writeConstants(sf);
+            if (writeEvents)
+            {
+                sf.writeln();
+                foreach(msg; events)
+                {
+                    msg.writeClientEventDgAlias(sf);
+                }
+            }
             sf.writeln();
             writeVersionCode(sf);
             foreach (en; enums)
@@ -800,44 +835,26 @@ class Interface : ClientCodeGen
                 sf.writeln();
                 msg.writeClientRequestCode(sf);
             }
-            if (events.length)
+            if (writeEvents)
             {
+                foreach(msg; events)
+                {
+                    sf.writeln();
+                    msg.writeClientEventDgAccessor(sf);
+                }
+
                 sf.writeln();
-                sf.writeln("/// interface listening to events issued from a %s", dName);
-                sf.writeln("interface Listener");
-                sf.bracedBlock!({
-                    foreach (i, msg; events)
-                    {
-                        if (i != 0) sf.writeln();
-                        msg.writeClientEventSig(sf);
-                    }
-                });
-                sf.writeln();
-                sf.writeln("private Listener _listener;");
-                sf.writeln();
-                sf.writeln("/// Get the listener bound to this object.");
-                sf.writeln("@property Listener listener()");
-                sf.bracedBlock!({
-                    sf.writeln("return _listener;");
-                });
-                sf.writeln();
-                sf.writeln("/// Bind the supplied listener to this object and start listening.");
-                sf.writeln("///");
-                sf.writeln("/// It is an error to rebind an already bound listener.");
-                sf.writeln("@property void listener(Listener listener)");
-                sf.bracedBlock!({
-                    sf.writeln("assert(!_listener);");
-                    sf.writeln("_listener = listener;");
-                    sf.writeln("wl_proxy_add_listener(proxy, cast(void_func_t*)&the%sListener, null);",
-                            titleCamelName(name));
-                });
+                foreach(msg; events)
+                {
+                    sf.writeln("private %s _%s;", msg.dEvDgType, msg.dEvName);
+                }
             }
         });
     }
 
     void writePrivListener(SourceFile sf)
     {
-        if (events.empty) return;
+        if (!writeEvents) return;
 
         sf.writeln();
         sf.writeln("struct %s_listener", name);
@@ -861,6 +878,8 @@ class Interface : ClientCodeGen
 
     void writePrivListenerStubs(SourceFile sf)
     {
+        if (!writeEvents) return;
+
         foreach(ev; events)
         {
             sf.writeln();
