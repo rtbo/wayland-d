@@ -652,7 +652,7 @@ class Message
 
     void writePrivListenerStub(SourceFile sf)
     {
-        immutable fstLine = format("void on_%s_%s(", ifaceName, name);
+        immutable fstLine = format("void wl_d_on_%s_%s(", ifaceName, name);
         immutable indent = ' '.repeat.take(fstLine.length).array();
         sf.writeln("%svoid* data,", fstLine);
         auto eol = args.empty ? ")" : ",";
@@ -868,7 +868,7 @@ class Interface : ClientCodeGen
         immutable indent = ' '.repeat(fstLine.length).array();
         foreach (i, ev; events)
         {
-            sf.writeln("%s&on_%s_%s%s", (i == 0 ? fstLine : indent),
+            sf.writeln("%s&wl_d_on_%s_%s%s", (i == 0 ? fstLine : indent),
                                         name, ev.name,
                                         (i == events.length-1) ? ");" : ",");
         }
