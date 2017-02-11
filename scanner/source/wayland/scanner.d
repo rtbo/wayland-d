@@ -557,7 +557,7 @@ class Message
         // writing sig
         auto ret = clientReqReturn;
         immutable fstLine = format("%s %s(", ret[1], camelName(name));
-        immutable indent = ' '.repeat().take(fstLine.length).array();
+        immutable indent = ' '.repeat(fstLine.length).array();
         sf.write(fstLine);
         bool hadLine;
         foreach (i, arg; args)
@@ -576,25 +576,9 @@ class Message
         }
         sf.writeln(")");
         // writing body
-        sf.bracedBlock!({
-            if (ret[0] && ret[0].iface.empty)
-            {
-                sf.writeln("return (cast(immutable(ClientWlInterface))iface)");
-                sf.writeln("    .makeProxy(wl_proxy_marshal_constructor_versioned(");
-                sf.write("        proxy, %sOpcode, iface.native, ver", camelName(name));
-            }
-            else if (ret[0])
-            {
-                sf.writeln("return new %s(wl_proxy_marshal_constructor(", ret[1]);
-                sf.write("    proxy, %sOpcode, %sInterface.native",
-                        camelName(name), camelName(ret[0].iface));
-            }
-            else
-            {
-                if (isDtor) sf.writeln("super.destroyNotify();");
-                sf.writeln("wl_proxy_marshal(");
-                sf.write("    proxy, %sOpcode", camelName(name));
-            }
+
+        void writeArgVals()
+        {
             foreach (arg; args)
             {
                 if (arg.type == ArgType.NewId)
@@ -608,12 +592,44 @@ class Message
                     sf.write(", %s", arg.cCastExpr);
                 }
             }
-            sf.writeln();
+        }
+
+        sf.bracedBlock!({
             if (ret[0] && ret[0].iface.empty)
-                sf.writeln("    )");
+            {
+                sf.writeln("auto _pp = wl_proxy_marshal_constructor_versioned(");
+                sf.write("    proxy, %sOpcode, iface.native, ver", camelName(name));
+                writeArgVals();
+                sf.writeln();
+                sf.writeln(");");
+                sf.writeln("if (!_pp) return null;");
+                sf.writeln("auto _p = WlProxy.get(_pp);");
+                sf.writeln("if (_p) return _p;");
+                sf.writeln("return (cast(immutable(ClientWlInterface))iface)"~
+                    ".makeProxy(_pp);");
+            }
             else if (ret[0])
-                sf.write(")");
-            sf.writeln(");");
+            {
+                sf.writeln("auto _pp = wl_proxy_marshal_constructor(");
+                sf.write("    proxy, %sOpcode, %sInterface.native",
+                        camelName(name), camelName(ret[0].iface));
+                writeArgVals();
+                sf.writeln();
+                sf.writeln(");");
+                sf.writeln("if (!_pp) return null;");
+                sf.writeln("auto _p = WlProxy.get(_pp);");
+                sf.writeln("if (_p) return cast(%s)_p;", ret[1]);
+                sf.writeln("return new %s(_pp);", ret[1]);
+            }
+            else
+            {
+                if (isDtor) sf.writeln("super.destroyNotify();");
+                sf.writeln("wl_proxy_marshal(");
+                sf.write("    proxy, %sOpcode", camelName(name));
+                writeArgVals();
+                sf.writeln();
+                sf.writeln(");");
+            }
         });
     }
 
