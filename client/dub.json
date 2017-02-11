@@ -9,6 +9,9 @@
 	"dependencies": {
 		"wayland-d": { "path": ".." }
 	},
+	"preGenerateCommands": [
+		"bash $PACKAGE_DIR/gen_protocol.sh"
+	],
 	"sourcePaths": [
 		"source",
 		"../util"
