@@ -15,7 +15,7 @@ import core.stdc.config : c_long;
 int createMmapableFile(size_t size)
 {
     import std.process : environment;
-    enum tmplt = "/dgt-shared-XXXXXX";
+    enum tmplt = "/wld-hello-XXXXXX";
     string base = environment.get("XDG_RUNTIME_DIR", "/tmp");
     auto path = new char[base.length + tmplt.length + 1];
     path[0 .. base.length] = base;
