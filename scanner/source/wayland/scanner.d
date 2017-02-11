@@ -501,10 +501,7 @@ class Message
                 break;
             case ArgType.NewId:
                 if (arg.iface.empty)
-                {
-                    stderr.writeln("NewId to be checked");
                     sig ~= "su";
-                }
                 sig ~= "n";
                 break;
             case ArgType.UInt:
