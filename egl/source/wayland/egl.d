@@ -5,7 +5,7 @@ import wayland.native.egl;
 import wayland.util;
 import std.typecons : tuple, Tuple;
 
-class EglWindow : Native!wl_egl_window
+class WlEglWindow : Native!wl_egl_window
 {
     mixin nativeImpl!(wl_egl_window);
 
