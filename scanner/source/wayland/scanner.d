@@ -610,8 +610,8 @@ class Message
             else if (ret[0])
             {
                 sf.writeln("auto _pp = wl_proxy_marshal_constructor(");
-                sf.write("    proxy, %sOpcode, %sInterface.native",
-                        camelName(name), camelName(ret[0].iface));
+                sf.write("    proxy, %sOpcode, %s.iface.native",
+                        camelName(name), titleCamelName(ret[0].iface));
                 writeArgVals();
                 sf.writeln();
                 sf.writeln(");");
@@ -818,7 +818,11 @@ class Interface : ClientCodeGen
                     );
                 }
             });
-
+            sf.writeln();
+            sf.writeln("static @property immutable(WlProxyInterface) iface()");
+            sf.bracedBlock!({
+                sf.writeln("return %sIface;", camelName(name));
+            });
             sf.writeln();
             writeConstants(sf);
             if (writeEvents)
@@ -980,11 +984,6 @@ class Protocol
         sf.writeln("import std.exception : enforce;");
         sf.writeln("import std.string : fromStringz, toStringz;");
         sf.writeln();
-        foreach(iface; ifaces)
-        {
-            sf.writeln("immutable WlProxyInterface %sInterface;", camelName(iface.name));
-        }
-        sf.writeln();
 
         foreach(iface; ifaces)
         {
@@ -1011,9 +1010,14 @@ class Protocol
 
     void writePrivIfaces(SourceFile sf)
     {
+        foreach(iface; ifaces)
+        {
+            sf.writeln("immutable WlProxyInterface %sIface;", camelName(iface.name));
+        }
         foreach (iface; ifaces)
         {
-            sf.writeln("immutable final class %sInterface : WlProxyInterface",
+            sf.writeln();
+            sf.writeln("immutable final class %sIface : WlProxyInterface",
                     titleCamelName(iface.name));
             sf.bracedBlock!({
                 sf.writeln("this(immutable wl_interface* native)");
@@ -1030,9 +1034,9 @@ class Protocol
                         sf.writeln("return new %s(proxy);", titleCamelName(iface.name));
                 });
             });
-            sf.writeln();
         }
-        sf.writeln("immutable wl_interface[] wl_interfaces;");
+        sf.writeln();
+        sf.writeln("immutable wl_interface[] wl_ifaces;");
         sf.writeln();
         foreach (i, iface; ifaces)
         {
@@ -1051,11 +1055,11 @@ class Protocol
                 sf.writeln();
             }
             sf.writeln("import std.exception : assumeUnique;");
-            sf.writeln("wl_interfaces = assumeUnique(ifaces);");
+            sf.writeln("wl_ifaces = assumeUnique(ifaces);");
             sf.writeln();
             foreach (iface; ifaces)
             {
-                sf.writeln("%sInterface = new immutable %sInterface( &wl_interfaces[%s] );",
+                sf.writeln("%sIface = new immutable %sIface( &wl_ifaces[%s] );",
                         camelName(iface.name),
                         titleCamelName(iface.name),
                         indexSymbol(iface.name));

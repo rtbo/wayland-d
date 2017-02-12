@@ -66,28 +66,28 @@ class Hello
 
 	void regGlobal(WlRegistry reg, uint name, string iface, uint ver)
 	{
-		if(iface == wlCompositorInterface.name)
+		if(iface == WlCompositor.iface.name)
 		{
 			compositor = cast(WlCompositor)reg.bind(
-				name, wlCompositorInterface, min(ver, 4)
+				name, WlCompositor.iface, min(ver, 4)
 			);
 		}
-		else if(iface == wlShmInterface.name)
+		else if(iface == WlShm.iface.name)
 		{
 			shm = cast(WlShm)reg.bind(
-				name, wlShmInterface, min(ver, 1)
+				name, WlShm.iface, min(ver, 1)
 			);
 		}
-		else if(iface == wlShellInterface.name)
+		else if(iface == WlShell.iface.name)
 		{
 			shell = cast(WlShell)reg.bind(
-				name, wlShellInterface, min(ver, 1)
+				name, WlShell.iface, min(ver, 1)
 			);
 		}
-		else if(iface == wlSeatInterface.name)
+		else if(iface == WlSeat.iface.name)
 		{
 			seat = cast(WlSeat)reg.bind(
-				name, wlSeatInterface, min(ver, 2)
+				name, WlSeat.iface, min(ver, 2)
 			);
 			pointer = seat.getPointer();
 			pointer.onEnter = &pointerEnter;
