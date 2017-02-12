@@ -1,0 +1,15 @@
+{
+	"name": "egl_window",
+	"targetType": "executable",
+	"authors": [
+		"Rémi Thebault"
+	],
+	"description": "Wayland egl client example.",
+	"copyright": "Copyright © 2017, Rémi Thebault",
+	"license": "MIT",
+	"dependencies": {
+		"wayland-d:client": { "path": "../../client" },
+		"wayland-d:egl": { "path": "../../egl" },
+		"derelict-gles": "~>0.0.1"
+	}
+}

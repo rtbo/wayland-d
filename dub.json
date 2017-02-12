@@ -15,6 +15,7 @@
 
 		"./examples/connect/",
 		"./examples/list_registry/",
+		"./examples/egl_window/",
 		"./examples/hello/"
 	]
 }
