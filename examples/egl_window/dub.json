@@ -10,6 +10,12 @@
 	"dependencies": {
 		"wayland-d:client": { "path": "../../client" },
 		"wayland-d:egl": { "path": "../../egl" },
-		"derelict-gles": "~>0.0.1"
+		"derelict-gles": {
+			"comment": "patched version of derelict-gles is needed",
+			"path": "../../3rdparty/DerelictGLES"
+		}
+	},
+	"subConfigurations": {
+		"derelict-gles": "wayland"
 	}
 }
