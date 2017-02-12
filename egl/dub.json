@@ -1,0 +1,25 @@
+{
+	"name": "egl",
+	"authors": [
+		"Rémi Thebault"
+	],
+	"description": "D bindings to wayland-egl",
+	"copyright": "Copyright © 2017, Rémi Thebault",
+	"license": "MIT",
+	"dependencies": {
+		"wayland-d:client": {
+			"path": "../client"
+		}
+	},
+	"configurations": [
+		{
+			"name": "static",
+			"versions": ["WlStatic"],
+			"libs": ["wayland-egl"]
+		},
+		{
+			"name": "dynamic",
+			"versions": ["WlDynamic"]
+		}
+	]
+}
