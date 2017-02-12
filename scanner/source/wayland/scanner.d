@@ -362,7 +362,7 @@ class Arg
                 return "string";
             case ArgType.Object:
                 if (iface.length)
-                    return titleCamelName(iface);
+                    return ifaceDName(iface);
                 else
                     return "WlProxy";
             case ArgType.NewId:
@@ -422,7 +422,7 @@ class Arg
             case ArgType.Object:
                 auto expr = format("WlProxy.get(%s)", paramName);
                 if (iface)
-                    return format("cast(%s)%s", titleCamelName(iface), expr);
+                    return format("cast(%s)%s", ifaceDName(iface), expr);
                 else
                     return expr;
             case ArgType.NewId:
@@ -481,6 +481,16 @@ class Message
         return argIfaceTypes.empty ? args.length : 0;
     }
 
+    @property string dReqName()
+    {
+        return validDName(camelName(name));
+    }
+
+    @property string reqOpCode()
+    {
+        return format("%sOpCode", camelName(name));
+    }
+
     @property string dEvName()
     {
         return "on" ~ titleCamelName(name);
@@ -489,6 +499,11 @@ class Message
     @property string dEvDgType()
     {
         return "On" ~ titleCamelName(name) ~ "EventDg";
+    }
+
+    @property string evOpCode()
+    {
+        return format("on%sOpCode", titleCamelName(name));
     }
 
     @property string cEvName()
@@ -551,7 +566,7 @@ class Message
                 ret = arg;
                 if (arg.iface.length)
                 {
-                    retStr = titleCamelName(arg.iface);
+                    retStr = ifaceDName(arg.iface);
                 }
                 else
                 {
@@ -568,7 +583,7 @@ class Message
         description.writeClientCode(sf);
         // writing sig
         auto ret = clientReqReturn;
-        immutable fstLine = format("%s %s(", ret[1], camelName(name));
+        immutable fstLine = format("%s %s(", ret[1], dReqName);
         immutable indent = ' '.repeat(fstLine.length).array();
         sf.write(fstLine);
         bool hadLine;
@@ -610,7 +625,7 @@ class Message
             if (ret[0] && ret[0].iface.empty)
             {
                 sf.writeln("auto _pp = wl_proxy_marshal_constructor_versioned(");
-                sf.write("    proxy, %sOpCode, iface.native, ver", camelName(name));
+                sf.write("    proxy, %s, iface.native, ver", reqOpCode);
                 writeArgVals();
                 sf.writeln();
                 sf.writeln(");");
@@ -622,8 +637,8 @@ class Message
             else if (ret[0])
             {
                 sf.writeln("auto _pp = wl_proxy_marshal_constructor(");
-                sf.write("    proxy, %sOpCode, %s.iface.native",
-                        camelName(name), titleCamelName(ret[0].iface));
+                sf.write("    proxy, %s, %s.iface.native",
+                        reqOpCode, ifaceDName(ret[0].iface));
                 writeArgVals();
                 sf.writeln();
                 sf.writeln(");");
@@ -635,7 +650,7 @@ class Message
             else
             {
                 sf.writeln("wl_proxy_marshal(");
-                sf.write("    proxy, %sOpCode", camelName(name));
+                sf.write("    proxy, %s", reqOpCode);
                 writeArgVals();
                 sf.writeln();
                 sf.writeln(");");
@@ -646,11 +661,11 @@ class Message
 
     void writeClientEventDgAlias(SourceFile sf)
     {
-        sf.writeln("/// Event delegate signature of %s.%s.", titleCamelName(ifaceName), dEvName);
+        sf.writeln("/// Event delegate signature of %s.%s.", ifaceDName(ifaceName), dEvName);
         immutable fstLine = format("alias %s = void delegate (", dEvDgType);
         immutable indent = ' '.repeat(fstLine.length).array();
         string eol = args.length ? "," : ");";
-        sf.writeln("%s%s %s%s", fstLine, titleCamelName(ifaceName), camelName(ifaceName), eol);
+        sf.writeln("%s%s %s%s", fstLine, ifaceDName(ifaceName), camelName(ifaceName), eol);
         foreach(i, arg; args)
         {
             eol = i == args.length-1 ? ");" : ",";
@@ -708,8 +723,8 @@ class Message
             sf.indentedBlock!({
                 sf.writeln("auto _p = WlProxy.get(proxy);");
                 sf.writeln("assert(_p, \"listener stub without proxy\");");
-                sf.writeln("auto _i = cast(%s)_p;", titleCamelName(ifaceName));
-                sf.writeln("assert(_i, \"listener stub proxy is not %s\");", titleCamelName(ifaceName));
+                sf.writeln("auto _i = cast(%s)_p;", ifaceDName(ifaceName));
+                sf.writeln("assert(_i, \"listener stub proxy is not %s\");", ifaceDName(ifaceName));
                 sf.writeln("if (_i._%s)", dEvName);
                 sf.bracedBlock!({
                     string sep = args.length ? ", " : "";
@@ -762,7 +777,7 @@ class Interface : ClientCodeGen
 
     @property string dName() const
     {
-        return titleCamelName(name);
+        return ifaceDName(name);
     }
 
     @property bool writeEvents()
@@ -784,15 +799,15 @@ class Interface : ClientCodeGen
             sf.writeln();
             foreach(i, msg; requests)
             {
-                sf.writeln("/// Op-code of %s.%s.", dName, camelName(msg.name));
-                sf.writeln("enum %sOpCode = %d;", camelName(msg.name), i);
+                sf.writeln("/// Op-code of %s.%s.", dName, msg.dReqName);
+                sf.writeln("enum %s = %d;", msg.reqOpCode, i);
             }
             sf.writeln();
             foreach(msg; requests)
             {
                 sf.writeln(
                     "/// %s protocol version introducing %s.%s.",
-                    protocol, dName, camelName(msg.name)
+                    protocol, dName, msg.dReqName
                 );
                 sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
             }
@@ -803,10 +818,10 @@ class Interface : ClientCodeGen
             foreach(msg; events)
             {
                 sf.writeln(
-                    "/// %s protocol version introducing %s.on%s.",
-                    protocol, dName, titleCamelName(msg.name)
+                    "/// %s protocol version introducing %s.%s.",
+                    protocol, dName, msg.dEvName
                 );
-                sf.writeln("enum on%sSinceVersion = %d;", titleCamelName(msg.name), msg.since);
+                sf.writeln("enum %sSinceVersion = %d;", msg.dEvName, msg.since);
             }
         }
     }
@@ -1068,7 +1083,7 @@ class Protocol
                         sf.writeln("return new WlDisplay(cast(wl_display*)proxy);");
                     }
                     else
-                        sf.writeln("return new %s(proxy);", titleCamelName(iface.name));
+                        sf.writeln("return new %s(proxy);", iface.dName);
                 });
             });
         }
@@ -1154,6 +1169,11 @@ class Protocol
 string indexSymbol(in string name) pure
 {
     return camelName(name, "index");
+}
+
+string ifaceDName(in string name) pure
+{
+    return titleCamelName(name);
 }
 
 string validDName(in string name) pure
