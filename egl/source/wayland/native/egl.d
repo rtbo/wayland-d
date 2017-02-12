@@ -2,6 +2,8 @@ module wayland.native.egl;
 
 import wayland.native.client;
 
+extern(C) nothrow:
+
 struct wl_egl_window;
 
 wl_egl_window*
