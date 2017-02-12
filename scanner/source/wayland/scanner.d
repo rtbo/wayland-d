@@ -598,7 +598,7 @@ class Message
             if (ret[0] && ret[0].iface.empty)
             {
                 sf.writeln("auto _pp = wl_proxy_marshal_constructor_versioned(");
-                sf.write("    proxy, %sOpcode, iface.native, ver", camelName(name));
+                sf.write("    proxy, %sOpCode, iface.native, ver", camelName(name));
                 writeArgVals();
                 sf.writeln();
                 sf.writeln(");");
@@ -610,7 +610,7 @@ class Message
             else if (ret[0])
             {
                 sf.writeln("auto _pp = wl_proxy_marshal_constructor(");
-                sf.write("    proxy, %sOpcode, %s.iface.native",
+                sf.write("    proxy, %sOpCode, %s.iface.native",
                         camelName(name), titleCamelName(ret[0].iface));
                 writeArgVals();
                 sf.writeln();
@@ -623,7 +623,7 @@ class Message
             else
             {
                 sf.writeln("wl_proxy_marshal(");
-                sf.write("    proxy, %sOpcode", camelName(name));
+                sf.write("    proxy, %sOpCode", camelName(name));
                 writeArgVals();
                 sf.writeln();
                 sf.writeln(");");
@@ -770,12 +770,10 @@ class Interface : ClientCodeGen
         if (requests.length)
         {
             sf.writeln();
-            sf.writeln("/// %s requests opcodes.", dName);
             foreach(i, msg; requests)
             {
-                if (i != 0)
-                    sf.writeln("/// ditto");
-                sf.writeln("enum %sOpcode = %d;", camelName(msg.name), i);
+                sf.writeln("/// Op-code of %s.%s.", dName, camelName(msg.name));
+                sf.writeln("enum %sOpCode = %d;", camelName(msg.name), i);
             }
             sf.writeln();
             foreach(msg; requests)
@@ -796,7 +794,7 @@ class Interface : ClientCodeGen
                     "/// %s protocol version introducing %s.on%s.",
                     protocol, dName, titleCamelName(msg.name)
                 );
-                sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
+                sf.writeln("enum on%sSinceVersion = %d;", titleCamelName(msg.name), msg.since);
             }
         }
     }
