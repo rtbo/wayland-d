@@ -158,7 +158,19 @@ class Description : ClientCodeGen
     override void writeClientCode(SourceFile sf)
     {
         if (empty) return;
-        sf.writeDoc("%s\n\n%s", summary, text);
+        if (text.empty)
+        {
+            enforce(!summary.canFind('\n'), "Summary should be a 1 liner.");
+            sf.writeln("/// %s", summary);
+        }
+        else if (summary.empty)
+        {
+            sf.writeDoc("%s", text);
+        }
+        else
+        {
+            sf.writeDoc("%s\n\n%s", summary, text);
+        }
     }
 }
 
