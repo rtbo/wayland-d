@@ -21,7 +21,6 @@ class WlEventQueue : Native!wl_event_queue
     }
 }
 
-
 /++
  + Represents a connection to the compositor and acts as a proxy to
  + the wl_display singleton object.
