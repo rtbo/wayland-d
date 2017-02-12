@@ -476,7 +476,7 @@ class Message
 
     @property string dEvDgType()
     {
-        return "On" ~ titleCamelName(name) ~ "Dg";
+        return "On" ~ titleCamelName(name) ~ "EventDg";
     }
 
     @property string cEvName()
