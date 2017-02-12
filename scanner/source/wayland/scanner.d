@@ -809,6 +809,7 @@ class Interface : ClientCodeGen
         if (!hasDestroy && name != "wl_display")
         {
             sf.writeln();
+            sf.writeln("/// Destroy this %s object.", dName);
             sf.writeln("void destroy()");
             sf.bracedBlock!({
                 sf.writeln("wl_proxy_destroy(proxy);");
