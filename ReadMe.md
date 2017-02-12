@@ -8,7 +8,7 @@ D bindings to wayland.
 Have several components:
  - scanner: XML protocol parser and code generator. It generates high level objects.
  - client: client protocol and libwayland-client native API wrapped into higher level objects.
- - egl: allow use of wayland-egl (see [this example](https://github.com/rtbo/wayland-d/examples/egl_window/source/egl_window.d)).
+ - egl: allow use of wayland-egl (see [this example](https://github.com/rtbo/wayland-d/blob/master/examples/egl_window/source/egl_window.d)).
  - server: unimplemented.
 
 ## Client usage
@@ -41,7 +41,7 @@ void main()
 }
 ```
 
-## playground
+## Playground
 
 You can try one of the examples if you are under a wayland compositor:
 ```sh
