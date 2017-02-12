@@ -718,6 +718,7 @@ class Message
 
 class Interface : ClientCodeGen
 {
+    string protocol;
     string name;
     string ver;
     Description description;
@@ -725,9 +726,10 @@ class Interface : ClientCodeGen
     Message[] events;
     Enum[] enums;
 
-    this (Element el)
+    this (Element el, string protocol)
     {
         assert(el.tagName == "interface");
+        this.protocol = protocol;
         name = el.getAttribute("name");
         ver = el.getAttribute("version");
         description = new Description(el);
@@ -764,14 +766,37 @@ class Interface : ClientCodeGen
 
     void writeConstants(SourceFile sf)
     {
-        foreach(i, msg; requests)
+        if (requests.length)
         {
-            sf.writeln("enum %sOpcode = %d;", camelName(msg.name), i);
+            sf.writeln();
+            sf.writeln("/// %s requests opcodes.", dName);
+            foreach(i, msg; requests)
+            {
+                if (i != 0)
+                    sf.writeln("/// ditto");
+                sf.writeln("enum %sOpcode = %d;", camelName(msg.name), i);
+            }
+            sf.writeln();
+            foreach(msg; requests)
+            {
+                sf.writeln(
+                    "/// %s protocol version introducing %s.%s.",
+                    protocol, dName, camelName(msg.name)
+                );
+                sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
+            }
         }
-        sf.writeln();
-        foreach(msg; chain(events, requests))
+        if (events.length)
         {
-            sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
+            sf.writeln();
+            foreach(msg; events)
+            {
+                sf.writeln(
+                    "/// %s protocol version introducing %s.on%s.",
+                    protocol, dName, titleCamelName(msg.name)
+                );
+                sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
+            }
         }
     }
 
@@ -823,7 +848,6 @@ class Interface : ClientCodeGen
             sf.bracedBlock!({
                 sf.writeln("return %sIface;", camelName(name));
             });
-            sf.writeln();
             writeConstants(sf);
             if (writeEvents)
             {
@@ -949,7 +973,7 @@ class Protocol
         }
         foreach (ifEl; el.getElementsByTagName("interface"))
         {
-            ifaces ~= new Interface(ifEl);
+            ifaces ~= new Interface(ifEl, name);
         }
     }
 
