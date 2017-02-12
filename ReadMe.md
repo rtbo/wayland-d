@@ -1,14 +1,17 @@
-## wayland-d
+# wayland-d
 
 D bindings to wayland.
 
 ![dub version](https://img.shields.io/dub/v/wayland-d.svg)
 ![dub downloads](https://img.shields.io/dub/dt/wayland-d.svg)
 
-Supersedes former bindings [wayland-scanner-d](https://github.com/rtbo/wayland-scanner-d)
-and [wayland-client-d](https://github.com/rtbo/wayland-client-d).
+Have several components:
+ - scanner: XML protocol parser and code generator. It generates high level objects.
+ - client: client protocol and libwayland-client native API wrapped into higher level objects.
+ - egl: allow use of wayland-egl (see [this example](https://github.com/rtbo/wayland-d/examples/egl_window/source/egl_window.d)).
+ - server: unimplemented.
 
-### Client usage
+## Client usage
 
 Add the `wayland-d:client` dependency in your `dub.json`:
 ```json
@@ -36,4 +39,11 @@ void main()
     };
     display.roundtrip();
 }
+```
+
+## playground
+
+You can try one of the examples if you are under a wayland compositor:
+```sh
+dub run wayland-d:hello
 ```
