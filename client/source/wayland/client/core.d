@@ -206,7 +206,7 @@ abstract class WlProxy
         else return null;
     }
 
-    protected final @property inout(wl_proxy)* proxy() inout
+    final @property inout(wl_proxy)* proxy() inout
     {
         return _proxy;
     }
