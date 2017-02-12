@@ -231,7 +231,7 @@ abstract class WlProxy
     }
 }
 
-immutable abstract class ClientWlInterface : WlInterface
+immutable abstract class WlProxyInterface : WlInterface
 {
     this(immutable wl_interface* native)
     {

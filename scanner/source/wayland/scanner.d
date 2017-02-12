@@ -566,7 +566,7 @@ class Message
 
             string line;
             if (arg.type == ArgType.NewId && arg.iface.empty)
-                line = "immutable(WlInterface) iface, uint ver";
+                line = "immutable(WlProxyInterface) iface, uint ver";
             else if (arg.type != ArgType.NewId)
                 line = format("%s %s", arg.dType, arg.paramName);
 
@@ -605,8 +605,7 @@ class Message
                 sf.writeln("if (!_pp) return null;");
                 sf.writeln("auto _p = WlProxy.get(_pp);");
                 sf.writeln("if (_p) return _p;");
-                sf.writeln("return (cast(immutable(ClientWlInterface))iface)"~
-                    ".makeProxy(_pp);");
+                sf.writeln("return iface.makeProxy(_pp);");
             }
             else if (ret[0])
             {
@@ -983,7 +982,7 @@ class Protocol
         sf.writeln();
         foreach(iface; ifaces)
         {
-            sf.writeln("immutable WlInterface %sInterface;", camelName(iface.name));
+            sf.writeln("immutable WlProxyInterface %sInterface;", camelName(iface.name));
         }
         sf.writeln();
 
@@ -1014,7 +1013,7 @@ class Protocol
     {
         foreach (iface; ifaces)
         {
-            sf.writeln("immutable final class %sInterface : ClientWlInterface",
+            sf.writeln("immutable final class %sInterface : WlProxyInterface",
                     titleCamelName(iface.name));
             sf.bracedBlock!({
                 sf.writeln("this(immutable wl_interface* native)");
