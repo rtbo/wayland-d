@@ -634,6 +634,7 @@ class Message
 
     void writeClientEventDgAlias(SourceFile sf)
     {
+        sf.writeln("/// Event delegate signature of %s.%s.", titleCamelName(ifaceName), dEvName);
         immutable fstLine = format("alias %s = void delegate (", dEvDgType);
         immutable indent = ' '.repeat(fstLine.length).array();
         string eol = args.length ? "," : ");";
@@ -844,6 +845,7 @@ class Interface : ClientCodeGen
                 }
             });
             sf.writeln();
+            sf.writeln("/// Interface object that creates %s objects.", dName);
             sf.writeln("static @property immutable(WlProxyInterface) iface()");
             sf.bracedBlock!({
                 sf.writeln("return %sIface;", camelName(name));
