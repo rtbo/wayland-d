@@ -1,3 +1,4 @@
 [submodule "3rdparty/DerelictGLES"]
 	path = 3rdparty/DerelictGLES
 	url = https://github.com/rtbo/DerelictGLES.git
+	ignore = dirty
