@@ -233,6 +233,7 @@ class EglWindow
 		immutable speedDiv = 5f;
 		immutable msecs = (MonoTime.currTime - startTime).total!"msecs";
 		immutable angle = ((msecs / speedDiv) % 360) * PI / 180f;
+		if (msecs >= 5000) running = false;
 
 		immutable s = sin(angle);
 		immutable c = cos(angle);
