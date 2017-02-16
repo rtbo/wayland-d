@@ -118,7 +118,7 @@ class EglWindow
 								WlShellSurface.Resize edges,
 								int width, int height)
 		{
-			eglWin.resize(width, height, 0, 0);
+			eglWin.resize(width, height, 100, 100);
 			configured = true;
 		};
 
