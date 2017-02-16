@@ -12,6 +12,7 @@
 		"./client/",
 		"./egl/",
 		"./server/",
+		"./cursor/",
 
 		"./examples/connect/",
 		"./examples/list_registry/",

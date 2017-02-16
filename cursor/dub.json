@@ -1,0 +1,30 @@
+{
+	"name": "cursor",
+	"authors": [
+		"Rémi Thebault"
+	],
+	"description": "D bindings to wayland-cursor",
+	"copyright": "Copyright © 2017, Rémi Thebault",
+	"license": "MIT",
+
+	"dependencies": {
+		"wayland-d:client": {
+			"path": "../client"
+		}
+	},
+
+	"configurations": [
+		{
+			"name": "static",
+			"versions": ["WlStatic"],
+			"libs": ["wayland-cursor"]
+		},
+		{
+			"name": "dynamic",
+			"versions": ["WlDynamic"],
+			"dependencies": {
+				"derelict-util": "~>2.0.0"
+			}
+		}
+	]
+}
