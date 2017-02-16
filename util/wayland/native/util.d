@@ -30,211 +30,210 @@ module wayland.native.util;
 
 import core.stdc.stdarg : va_list;
 
-/**
- * Protocol message signature
- *
- * A wl_message describes the signature of an actual protocol message, such as a
- * request or event, that adheres to the Wayland protocol wire format. The
- * protocol implementation uses a wl_message within its demarshal machinery for
- * decoding messages between a compositor and its clients. In a sense, a
- * wl_message is to a protocol message like a class is to an object.
- *
- * The `name` of a wl_message is the name of the corresponding protocol message.
- * The `signature` is an ordered list of symbols representing the data types
- * of message arguments and, optionally, a protocol version and indicators for
- * nullability. A leading integer in the `signature` indicates the _since_
- * version of the protocol message. A `?` preceding a data type symbol indicates
- * that the following argument type is nullable. When no arguments accompany a
- * message, `signature` is an empty string.
- *
- * * `i`: int
- * * `u`: uint
- * * `f`: fixed
- * * `s`: string
- * * `o`: object
- * * `n`: new_id
- * * `a`: array
- * * `h`: fd
- * * `?`: following argument is nullable
- *
- * While demarshaling primitive arguments is straightforward, when demarshaling
- * messages containing `object` or `new_id` arguments, the protocol
- * implementation often must determine the type of the object. The `types` of a
- * wl_message is an array of wl_interface references that correspond to `o` and
- * `n` arguments in `signature`, with `NULL` placeholders for arguments with
- * non-object types.
- *
- * Consider the protocol event wl_display `delete_id` that has a single `uint`
- * argument. The wl_message is:
- *
- * \code
- * { "delete_id", "u", [NULL] }
- * \endcode
- *
- * Here, the message `name` is `"delete_id"`, the `signature` is `"u"`, and the
- * argument `types` is `[NULL]`, indicating that the `uint` argument has no
- * corresponding wl_interface since it is a primitive argument.
- *
- * In contrast, consider a `wl_foo` interface supporting protocol request `bar`
- * that has existed since version 2, and has two arguments: a `uint` and an
- * object of type `wl_baz_interface` that may be `NULL`. Such a `wl_message`
- * might be:
- *
- * \code
- * { "bar", "2u?o", [NULL, &wl_baz_interface] }
- * \endcode
- *
- * Here, the message `name` is `"bar"`, and the `signature` is `"2u?o"`. Notice
- * how the `2` indicates the protocol version, the `u` indicates the first
- * argument type is `uint`, and the `?o` indicates that the second argument
- * is an object that may be `NULL`. Lastly, the argument `types` array indicates
- * that no wl_interface corresponds to the first argument, while the type
- * `wl_baz_interface` corresponds to the second argument.
- *
- * \sa wl_argument
- * \sa wl_interface
- * \sa <a href="https://wayland.freedesktop.org/docs/html/ch04.html#sect-Protocol-Wire-Format">Wire Format</a>
- */
-extern(C)
-struct wl_message
+extern(C) nothrow
 {
-	/** Message name */
-	const(char)* name;
-	/** Message signature */
-	const(char)* signature;
-	/** Object argument interfaces */
-	const(wl_interface*)* types;
-}
+    /**
+    * Protocol message signature
+    *
+    * A wl_message describes the signature of an actual protocol message, such as a
+    * request or event, that adheres to the Wayland protocol wire format. The
+    * protocol implementation uses a wl_message within its demarshal machinery for
+    * decoding messages between a compositor and its clients. In a sense, a
+    * wl_message is to a protocol message like a class is to an object.
+    *
+    * The `name` of a wl_message is the name of the corresponding protocol message.
+    * The `signature` is an ordered list of symbols representing the data types
+    * of message arguments and, optionally, a protocol version and indicators for
+    * nullability. A leading integer in the `signature` indicates the _since_
+    * version of the protocol message. A `?` preceding a data type symbol indicates
+    * that the following argument type is nullable. When no arguments accompany a
+    * message, `signature` is an empty string.
+    *
+    * * `i`: int
+    * * `u`: uint
+    * * `f`: fixed
+    * * `s`: string
+    * * `o`: object
+    * * `n`: new_id
+    * * `a`: array
+    * * `h`: fd
+    * * `?`: following argument is nullable
+    *
+    * While demarshaling primitive arguments is straightforward, when demarshaling
+    * messages containing `object` or `new_id` arguments, the protocol
+    * implementation often must determine the type of the object. The `types` of a
+    * wl_message is an array of wl_interface references that correspond to `o` and
+    * `n` arguments in `signature`, with `NULL` placeholders for arguments with
+    * non-object types.
+    *
+    * Consider the protocol event wl_display `delete_id` that has a single `uint`
+    * argument. The wl_message is:
+    *
+    * \code
+    * { "delete_id", "u", [NULL] }
+    * \endcode
+    *
+    * Here, the message `name` is `"delete_id"`, the `signature` is `"u"`, and the
+    * argument `types` is `[NULL]`, indicating that the `uint` argument has no
+    * corresponding wl_interface since it is a primitive argument.
+    *
+    * In contrast, consider a `wl_foo` interface supporting protocol request `bar`
+    * that has existed since version 2, and has two arguments: a `uint` and an
+    * object of type `wl_baz_interface` that may be `NULL`. Such a `wl_message`
+    * might be:
+    *
+    * \code
+    * { "bar", "2u?o", [NULL, &wl_baz_interface] }
+    * \endcode
+    *
+    * Here, the message `name` is `"bar"`, and the `signature` is `"2u?o"`. Notice
+    * how the `2` indicates the protocol version, the `u` indicates the first
+    * argument type is `uint`, and the `?o` indicates that the second argument
+    * is an object that may be `NULL`. Lastly, the argument `types` array indicates
+    * that no wl_interface corresponds to the first argument, while the type
+    * `wl_baz_interface` corresponds to the second argument.
+    *
+    * \sa wl_argument
+    * \sa wl_interface
+    * \sa <a href="https://wayland.freedesktop.org/docs/html/ch04.html#sect-Protocol-Wire-Format">Wire Format</a>
+    */
+    struct wl_message
+    {
+        /** Message name */
+        const(char)* name;
+        /** Message signature */
+        const(char)* signature;
+        /** Object argument interfaces */
+        const(wl_interface*)* types;
+    }
 
-/**
- * Protocol object interface
- *
- * A wl_interface describes the API of a protocol object defined in the Wayland
- * protocol specification. The protocol implementation uses a wl_interface
- * within its marshalling machinery for encoding client requests.
- *
- * The `name` of a wl_interface is the name of the corresponding protocol
- * interface, and `version` represents the version of the interface. The members
- * `method_count` and `event_count` represent the number of `methods` (requests)
- * and `events` in the respective wl_message members.
- *
- * For example, consider a protocol interface `foo`, marked as version `1`, with
- * two requests and one event.
- *
- * \code
- * <interface name="foo" version="1">
- *   <request name="a"></request>
- *   <request name="b"></request>
- *   <event name="c"></event>
- * </interface>
- * \endcode
- *
- * Given two wl_message arrays `foo_requests` and `foo_events`, a wl_interface
- * for `foo` might be:
- *
- * \code
- * struct wl_interface foo_interface = {
- *         "foo", 1,
- *         2, foo_requests,
- *         1, foo_events
- * };
- * \endcode
- *
- * \note The server side of the protocol may define interface <em>implementation
- *       types</em> that incorporate the term `interface` in their name. Take
- *       care to not confuse these server-side `struct`s with a wl_interface
- *       variable whose name also ends in `interface`. For example, while the
- *       server may define a type `struct wl_foo_interface`, the client may
- *       define a `struct wl_interface wl_foo_interface`.
- *
- * \sa wl_message
- * \sa wl_proxy
- * \sa <a href="https://wayland.freedesktop.org/docs/html/ch04.html#sect-Protocol-Interfaces">Interfaces</a>
- * \sa <a href="https://wayland.freedesktop.org/docs/html/ch04.html#sect-Protocol-Versioning">Versioning</a>
- */
-extern(C)
-struct wl_interface
-{
-	/** Interface name */
-	const(char)* name;
-	/** Interface version */
-	int version_;
-	/** Number of methods (requests) */
-	int method_count;
-	/** Method (request) signatures */
-	const(wl_message)* methods;
-	/** Number of events */
-	int event_count;
-	/** Event signatures */
-	const(wl_message)* events;
-}
+    /**
+    * Protocol object interface
+    *
+    * A wl_interface describes the API of a protocol object defined in the Wayland
+    * protocol specification. The protocol implementation uses a wl_interface
+    * within its marshalling machinery for encoding client requests.
+    *
+    * The `name` of a wl_interface is the name of the corresponding protocol
+    * interface, and `version` represents the version of the interface. The members
+    * `method_count` and `event_count` represent the number of `methods` (requests)
+    * and `events` in the respective wl_message members.
+    *
+    * For example, consider a protocol interface `foo`, marked as version `1`, with
+    * two requests and one event.
+    *
+    * \code
+    * <interface name="foo" version="1">
+    *   <request name="a"></request>
+    *   <request name="b"></request>
+    *   <event name="c"></event>
+    * </interface>
+    * \endcode
+    *
+    * Given two wl_message arrays `foo_requests` and `foo_events`, a wl_interface
+    * for `foo` might be:
+    *
+    * \code
+    * struct wl_interface foo_interface = {
+    *         "foo", 1,
+    *         2, foo_requests,
+    *         1, foo_events
+    * };
+    * \endcode
+    *
+    * \note The server side of the protocol may define interface <em>implementation
+    *       types</em> that incorporate the term `interface` in their name. Take
+    *       care to not confuse these server-side `struct`s with a wl_interface
+    *       variable whose name also ends in `interface`. For example, while the
+    *       server may define a type `struct wl_foo_interface`, the client may
+    *       define a `struct wl_interface wl_foo_interface`.
+    *
+    * \sa wl_message
+    * \sa wl_proxy
+    * \sa <a href="https://wayland.freedesktop.org/docs/html/ch04.html#sect-Protocol-Interfaces">Interfaces</a>
+    * \sa <a href="https://wayland.freedesktop.org/docs/html/ch04.html#sect-Protocol-Versioning">Versioning</a>
+    */
+    struct wl_interface
+    {
+        /** Interface name */
+        const(char)* name;
+        /** Interface version */
+        int version_;
+        /** Number of methods (requests) */
+        int method_count;
+        /** Method (request) signatures */
+        const(wl_message)* methods;
+        /** Number of events */
+        int event_count;
+        /** Event signatures */
+        const(wl_message)* events;
+    }
 
-/** \class wl_list
- *
- * \brief Doubly-linked list
- *
- * On its own, an instance of `struct wl_list` represents the sentinel head of
- * a doubly-linked list, and must be initialized using wl_list_init().
- * When empty, the list head's `next` and `prev` members point to the list head
- * itself, otherwise `next` references the first element in the list, and `prev`
- * refers to the last element in the list.
- *
- * Use the `struct wl_list` type to represent both the list head and the links
- * between elements within the list. Use wl_list_empty() to determine if the
- * list is empty in O(1).
- *
- * All elements in the list must be of the same type. The element type must have
- * a `struct wl_list` member, often named `link` by convention. Prior to
- * insertion, there is no need to initialize an element's `link` - invoking
- * wl_list_init() on an individual list element's `struct wl_list` member is
- * unnecessary if the very next operation is wl_list_insert(). However, a
- * common idiom is to initialize an element's `link` prior to removal - ensure
- * safety by invoking wl_list_init() before wl_list_remove().
- *
- * Consider a list reference `struct wl_list foo_list`, an element type as
- * `struct element`, and an element's link member as `struct wl_list link`.
- *
- * The following code initializes a list and adds three elements to it.
- *
- * \code
- * struct wl_list foo_list;
- *
- * struct element {
- *         int foo;
- *         struct wl_list link;
- * };
- * struct element e1, e2, e3;
- *
- * wl_list_init(&foo_list);
- * wl_list_insert(&foo_list, &e1.link);   // e1 is the first element
- * wl_list_insert(&foo_list, &e2.link);   // e2 is now the first element
- * wl_list_insert(&e2.link, &e3.link); // insert e3 after e2
- * \endcode
- *
- * The list now looks like <em>[e2, e3, e1]</em>.
- *
- * The `wl_list` API provides some iterator macros. For example, to iterate
- * a list in ascending order:
- *
- * \code
- * struct element *e;
- * wl_list_for_each(e, foo_list, link) {
- *         do_something_with_element(e);
- * }
- * \endcode
- *
- * See the documentation of each iterator for details.
- * \sa http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/include/linux/list.h
- */
-extern(C)
-struct wl_list
-{
-	/** Previous list element */
-	wl_list *prev;
-	/** Next list element */
-	wl_list *next;
+    /** \class wl_list
+    *
+    * \brief Doubly-linked list
+    *
+    * On its own, an instance of `struct wl_list` represents the sentinel head of
+    * a doubly-linked list, and must be initialized using wl_list_init().
+    * When empty, the list head's `next` and `prev` members point to the list head
+    * itself, otherwise `next` references the first element in the list, and `prev`
+    * refers to the last element in the list.
+    *
+    * Use the `struct wl_list` type to represent both the list head and the links
+    * between elements within the list. Use wl_list_empty() to determine if the
+    * list is empty in O(1).
+    *
+    * All elements in the list must be of the same type. The element type must have
+    * a `struct wl_list` member, often named `link` by convention. Prior to
+    * insertion, there is no need to initialize an element's `link` - invoking
+    * wl_list_init() on an individual list element's `struct wl_list` member is
+    * unnecessary if the very next operation is wl_list_insert(). However, a
+    * common idiom is to initialize an element's `link` prior to removal - ensure
+    * safety by invoking wl_list_init() before wl_list_remove().
+    *
+    * Consider a list reference `struct wl_list foo_list`, an element type as
+    * `struct element`, and an element's link member as `struct wl_list link`.
+    *
+    * The following code initializes a list and adds three elements to it.
+    *
+    * \code
+    * struct wl_list foo_list;
+    *
+    * struct element {
+    *         int foo;
+    *         struct wl_list link;
+    * };
+    * struct element e1, e2, e3;
+    *
+    * wl_list_init(&foo_list);
+    * wl_list_insert(&foo_list, &e1.link);   // e1 is the first element
+    * wl_list_insert(&foo_list, &e2.link);   // e2 is now the first element
+    * wl_list_insert(&e2.link, &e3.link); // insert e3 after e2
+    * \endcode
+    *
+    * The list now looks like <em>[e2, e3, e1]</em>.
+    *
+    * The `wl_list` API provides some iterator macros. For example, to iterate
+    * a list in ascending order:
+    *
+    * \code
+    * struct element *e;
+    * wl_list_for_each(e, foo_list, link) {
+    *         do_something_with_element(e);
+    * }
+    * \endcode
+    *
+    * See the documentation of each iterator for details.
+    * \sa http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/tree/include/linux/list.h
+    */
+    struct wl_list
+    {
+        /** Previous list element */
+        wl_list *prev;
+        /** Next list element */
+        wl_list *next;
+    }
 }
-
 /**
  * Retrieves a pointer to a containing struct, given a member name.
  *
@@ -686,7 +685,7 @@ extern(C) nothrow
  * \sa wl_client_for_each_resource_iterator_func_t
  * \sa wl_client_for_each_resource
  */
-enum wl_iterator_result
+extern(C) enum wl_iterator_result
 {
 	/** Stop the iteration */
 	WL_ITERATOR_STOP,
@@ -697,140 +696,77 @@ enum wl_iterator_result
 
 version(WlDynamic)
 {
-    static assert(false, "WlDynamic version is not implemented");
+    extern(C) nothrow
+    {
+        alias da_wl_list_init = void function (wl_list* list);
+
+        alias da_wl_list_insert = void function (wl_list* list, wl_list* elm);
+
+        alias da_wl_list_remove = void function (wl_list* elm);
+
+        alias da_wl_list_length = int function (const(wl_list)* list);
+
+        alias da_wl_list_empty = int function (const(wl_list)* list);
+
+        alias da_wl_list_insert_list = void function (wl_list* list, wl_list* other);
+
+        alias da_wl_array_init = void function (wl_array* array);
+
+        alias da_wl_array_release = void function (wl_array* array);
+
+        alias da_wl_array_add = void* function (wl_array* array, size_t size);
+
+        alias da_wl_array_copy = int function (wl_array* array, wl_array* source);
+    }
+
+    __gshared
+    {
+        da_wl_list_init wl_list_init;
+
+        da_wl_list_insert wl_list_insert;
+
+        da_wl_list_remove wl_list_remove;
+
+        da_wl_list_length wl_list_length;
+
+        da_wl_list_empty wl_list_empty;
+
+        da_wl_list_insert_list wl_list_insert_list;
+
+        da_wl_array_init wl_array_init;
+
+        da_wl_array_release wl_array_release;
+
+        da_wl_array_add wl_array_add;
+
+        da_wl_array_copy wl_array_copy;
+    }
 }
 
 version(WlStatic)
 {
-    extern(C) nothrow @nogc:
+    extern(C) nothrow
+    {
+        void wl_list_init(wl_list* list);
 
-    /**
-    * Initializes the list.
-    *
-    * \param list List to initialize
-    *
-    * \memberof wl_list
-    */
-    void
-    wl_list_init(wl_list *list);
+        void wl_list_insert(wl_list* list, wl_list* elm);
 
-    /**
-    * Inserts an element into the list, after the element represented by \p list.
-    * When \p list is a reference to the list itself (the head), set the containing
-    * struct of \p elm as the first element in the list.
-    *
-    * \note If \p elm is already part of a list, inserting it again will lead to
-    *       list corruption.
-    *
-    * \param list List element after which the new element is inserted
-    * \param elm Link of the containing struct to insert into the list
-    *
-    * \memberof wl_list
-    */
-    void
-    wl_list_insert(wl_list *list, wl_list *elm);
+        void wl_list_remove(wl_list* elm);
 
-    /**
-    * Removes an element from the list.
-    *
-    * \note This operation leaves \p elm in an invalid state.
-    *
-    * \param elm Link of the containing struct to remove from the list
-    *
-    * \memberof wl_list
-    */
-    void
-    wl_list_remove(wl_list *elm);
+        int wl_list_length(const(wl_list)* list);
 
-    /**
-    * Determines the length of the list.
-    *
-    * \note This is an O(n) operation.
-    *
-    * \param list List whose length is to be determined
-    *
-    * \return Number of elements in the list
-    *
-    * \memberof wl_list
-    */
-    int
-    wl_list_length(const wl_list *list);
+        int wl_list_empty(const(wl_list)* list);
 
-    /**
-    * Determines if the list is empty.
-    *
-    * \param list List whose emptiness is to be determined
-    *
-    * \return 1 if empty, or 0 if not empty
-    *
-    * \memberof wl_list
-    */
-    int
-    wl_list_empty(const wl_list *list);
+        void wl_list_insert_list(wl_list* list, wl_list* other);
 
-    /**
-    * Inserts all of the elements of one list into another, after the element
-    * represented by \p list.
-    *
-    * \note This leaves \p other in an invalid state.
-    *
-    * \param list List element after which the other list elements will be inserted
-    * \param other List of elements to insert
-    *
-    * \memberof wl_list
-    */
-    void
-    wl_list_insert_list(wl_list *list, wl_list *other);
+        void wl_array_init(wl_array* array);
 
-    /**
-    * Initializes the array.
-    *
-    * \param array Array to initialize
-    *
-    * \memberof wl_array
-    */
-    void
-    wl_array_init(wl_array *array);
+        void wl_array_release(wl_array* array);
 
-    /**
-    * Releases the array data.
-    *
-    * \note Leaves the array in an invalid state.
-    *
-    * \param array Array whose data is to be released
-    *
-    * \memberof wl_array
-    */
-    void
-    wl_array_release(wl_array *array);
+        void* wl_array_add(wl_array* array, size_t size);
 
-    /**
-    * Increases the size of the array by \p size bytes.
-    *
-    * \param array Array whose size is to be increased
-    * \param size Number of bytes to increase the size of the array by
-    *
-    * \return A pointer to the beginning of the newly appended space, or NULL when
-    *         resizing fails.
-    *
-    * \memberof wl_array
-    */
-    void *
-    wl_array_add(wl_array *array, size_t size);
-
-    /**
-    * Copies the contents of \p source to \p array.
-    *
-    * \param array Destination array to copy to
-    * \param source Source array to copy from
-    *
-    * \return 0 on success, or -1 on failure
-    *
-    * \memberof wl_array
-    */
-    int
-    wl_array_copy(wl_array *array, wl_array *source);
-
+        int wl_array_copy(wl_array* array, wl_array* source);
+    }
 }
 
 

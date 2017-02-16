@@ -17,5 +17,23 @@
 	},
 	"subConfigurations": {
 		"derelict-gles": "wayland"
-	}
+	},
+	"configurations": [
+		{
+			"name": "static",
+			"versions": ["WlStatic"],
+			"subConfigurations": {
+				"wayland-d:client": "static",
+				"wayland-d:egl": "static"
+			}
+		},
+		{
+			"name": "dynamic",
+			"versions": ["WlDynamic"],
+			"subConfigurations": {
+				"wayland-d:client": "dynamic",
+				"wayland-d:egl": "dynamic"
+			}
+		}
+	]
 }

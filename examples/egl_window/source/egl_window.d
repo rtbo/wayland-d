@@ -285,6 +285,12 @@ void* loadSymbol(string name)
 
 int main ()
 {
+	version(WlDynamic)
+	{
+		wlClientDynLib.load();
+		wlEglDynLib.load();
+	}
+
 	auto dpy = new Display();
 	scope(exit) dpy.destroy();
 	auto win = new EglWindow(dpy);

@@ -136,4 +136,3 @@ struct WlFixed
         return u.d - (3L << 43);
     }
 }
-

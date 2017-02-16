@@ -16,5 +16,21 @@
 		"wayland-d:client": {
 			"path": "../../client"
 		}
-	}
+	},
+	"configurations": [
+		{
+			"name": "static",
+			"versions": ["WlStatic"],
+			"subConfigurations": {
+				"wayland-d:client": "static"
+			}
+		},
+		{
+			"name": "dynamic",
+			"versions": ["WlDynamic"],
+			"subConfigurations": {
+				"wayland-d:client": "dynamic"
+			}
+		}
+	]
 }

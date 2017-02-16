@@ -24,6 +24,8 @@ enum cursorHotSpotY = 35;
 
 int main()
 {
+	version(WlDynamic) { wlClientDynLib.load(); }
+
 	auto hello = new Hello;
 	hello.makeMemPool(cast(immutable(ubyte)[])import("images.bin"));
 	hello.createSurface();
