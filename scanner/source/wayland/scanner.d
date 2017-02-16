@@ -917,7 +917,6 @@ class Interface : ClientCodeGen
     {
         if (!writeEvents) return;
 
-        sf.writeln();
         sf.writeln("struct %s_listener", name);
         sf.bracedBlock!({
             foreach(ev; events)
@@ -1052,8 +1051,9 @@ class Protocol
 
         sf.writeln("extern(C) nothrow");
         sf.bracedBlock!({
-            foreach(iface; ifaces)
+            foreach(i, iface; ifaces)
             {
+                if (i != 0) sf.writeln();
                 iface.writePrivListener(sf);
                 iface.writePrivListenerStubs(sf);
             }
