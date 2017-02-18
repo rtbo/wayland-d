@@ -7,9 +7,13 @@
 	"description": "Wayland egl client example.",
 	"copyright": "Copyright © 2017, Rémi Thebault",
 	"license": "MIT",
+	"preGenerateCommands": [
+		"dub run wayland-d:scanner -- -m zxdg_shell_v6 -i $PACKAGE_DIR/xdg-shell-unstable-v6.xml -o $PACKAGE_DIR/source/zxdg_shell_v6.d"
+	],
 	"dependencies": {
 		"wayland-d:client": { "path": "../../client" },
 		"wayland-d:egl": { "path": "../../egl" },
+		"wayland-d:cursor": { "path": "../../cursor" },
 		"derelict-gles": {
 			"comment": "patched version of derelict-gles is needed",
 			"path": "../../3rdparty/DerelictGLES"
