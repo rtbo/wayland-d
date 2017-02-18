@@ -403,6 +403,7 @@ int main ()
 	{
 		wlClientDynLib.load();
 		wlEglDynLib.load();
+		wlCursorDynLib.load();
 	}
 
 	auto dpy = new Display();

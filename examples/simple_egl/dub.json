@@ -28,7 +28,8 @@
 			"versions": ["WlStatic"],
 			"subConfigurations": {
 				"wayland-d:client": "static",
-				"wayland-d:egl": "static"
+				"wayland-d:egl": "static",
+				"wayland-d:cursor": "static"
 			}
 		},
 		{
@@ -36,7 +37,8 @@
 			"versions": ["WlDynamic"],
 			"subConfigurations": {
 				"wayland-d:client": "dynamic",
-				"wayland-d:egl": "dynamic"
+				"wayland-d:egl": "dynamic",
+				"wayland-d:cursor": "dynamic"
 			}
 		}
 	]
