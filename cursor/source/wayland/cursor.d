@@ -103,7 +103,8 @@ class WlCursorTheme : Native!wl_cursor_theme
 
     static WlCursorTheme load(string name, size_t size, WlShm shm)
     {
-        auto ct = wl_cursor_theme_load(toStringz(name), cast(int)size, shm.proxy);
+        auto nn = name.length ? toStringz(name) : null;
+        auto ct = wl_cursor_theme_load(nn, cast(int)size, shm.proxy);
         return ct ? new WlCursorTheme(ct) : null;
     }
 
