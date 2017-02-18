@@ -8,7 +8,7 @@ D bindings to wayland.
 Have several components:
  - scanner: XML protocol parser and code generator. It generates high level objects.
  - client: client protocol and libwayland-client native API wrapped into higher level objects.
- - egl: allow use of wayland-egl (see [this example](https://github.com/rtbo/wayland-d/blob/master/examples/egl_window/source/egl_window.d)).
+ - egl: allow use of wayland-egl (see [this example](https://github.com/rtbo/wayland-d/blob/master/examples/simple_egl/source/simple_egl.d)).
  - server: unimplemented.
 
 ## Client usage
@@ -16,7 +16,7 @@ Have several components:
 Add the `wayland-d:client` dependency in your `dub.json`:
 ```json
 "dependencies": {
-    "wayland-d:client": "~>0.0.1"
+    "wayland-d:client": "~>0.0.3"
 }
 ```
 
