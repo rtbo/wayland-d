@@ -1004,6 +1004,11 @@ class Protocol
         }
     }
 
+    bool isLocalIface(string name)
+    {
+        return ifaces.map!(iface => iface.name).canFind(name);
+    }
+
     void writeHeader(SourceFile sf, in Options opt)
     {
         import std.path : baseName;
@@ -1027,7 +1032,8 @@ class Protocol
     void writeClientCode(SourceFile sf, in Options opt)
     {
         writeHeader(sf, opt);
-        sf.writeln("import wayland.client.core;");
+        if (name == "wayland") sf.writeln("import wayland.client.core;");
+        else sf.writeln("import wayland.client;");
         sf.writeln("import wayland.native.client;");
         sf.writeln("import wayland.native.util;");
         sf.writeln("import wayland.util;");
@@ -1149,7 +1155,10 @@ class Protocol
                             (arg.type == ArgType.NewId ||
                                 arg.type == ArgType.Object))
                         {
-                            sf.writeln("&ifaces[%s],", indexSymbol(arg.iface));
+                            if (isLocalIface(arg.iface))
+                                sf.writeln("&ifaces[%s],", indexSymbol(arg.iface));
+                            else
+                                sf.writeln("cast(wl_interface*)%s.iface.native,", ifaceDName(arg.iface));
                         }
                         else
                         {
