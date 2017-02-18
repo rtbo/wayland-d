@@ -1,10 +1,10 @@
 {
-	"name": "egl_window",
+	"name": "simple_egl",
 	"targetType": "executable",
 	"authors": [
 		"Rémi Thebault"
 	],
-	"description": "Wayland egl client example.",
+	"description": "Wayland simple egl client example.",
 	"copyright": "Copyright © 2017, Rémi Thebault",
 	"license": "MIT",
 	"preGenerateCommands": [

@@ -1,4 +1,4 @@
-module egl_window;
+module simple_egl;
 
 // port of this example:
 // https://github.com/eyelash/tutorials/blob/master/wayland-egl.c
