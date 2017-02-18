@@ -14,11 +14,11 @@
 	],
 	"sourcePaths": [
 		"source",
-		"../util"
+		"../common"
 	],
 	"importPaths": [
 		"source",
-		"../util"
+		"../common"
 	],
 	"configurations": [
 		{
