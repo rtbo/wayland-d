@@ -7,6 +7,89 @@ import wayland.util;
 import std.string;
 
 
+class WlDisplayBase : Native!wl_display
+{
+    mixin nativeImpl!(wl_display);
+
+    alias DestroyDg = void delegate();
+
+    // one loop per display, so no need to use an object store
+    private WlEventLoop _loop;
+    private DestroyDg _destroyDg;
+
+    static WlDisplayBase create()
+    {
+        // FIXME: instantiate the protocol object
+        return new WlDisplayBase(
+            wl_display_create()
+        );
+    }
+
+    this (wl_display* native)
+    {
+        _native = native;
+    }
+
+    void destroy()
+    {
+        if (_destroyDg) _destroyDg();
+        wl_display_destroy(native);
+        _native = null;
+    }
+
+    @property WlEventLoop eventLoop()
+    {
+        if (!_loop) _loop = new WlEventLoop(wl_display_get_event_loop(native));
+        return _loop;
+    }
+
+    int addSocket(string name)
+    {
+        return wl_display_add_socket(native, toStringz(name));
+    }
+
+    string addSocketAuto()
+    {
+        return fromStringz(wl_display_add_socket_auto(native)).idup;
+    }
+
+    int addSocketFd(int fd)
+    {
+        return wl_display_add_socket_fd(native, fd);
+    }
+
+    void terminate()
+    {
+        wl_display_terminate(native);
+    }
+
+    void run()
+    {
+        wl_display_run(native);
+    }
+
+    void flushClients()
+    {
+        wl_display_flush_clients(native);
+    }
+
+    @property uint serial()
+    {
+        return wl_display_get_serial(native);
+    }
+
+    uint nextSerial()
+    {
+        return wl_display_next_serial(native);
+    }
+
+    @property void destroyListener(DestroyDg dg)
+    {
+        _destroyDg = dg;
+    }
+
+
+}
 
 
 class WlEventLoop : Native!wl_event_loop
