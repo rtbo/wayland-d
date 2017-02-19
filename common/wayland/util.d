@@ -76,13 +76,28 @@ void nothrowFnWrapper(alias fn)() nothrow
 }
 
 
-private __gshared Object[void*] _objCache;
 
 /// static cache of objects that are looked-up by the address of their native
 /// counter part
-@property Object[void*] objectCache()
+struct ObjectCache
 {
-    return _objCache;
+    private __gshared Object[void*] _cache;
+
+    static void set (void* native, Object obj)
+    {
+        _cache[native] = obj;
+    }
+
+    static Object get (void* native)
+    {
+        auto op = native in _cache;
+        return op ? *op : null;
+    }
+
+    static void remove (void* native)
+    {
+        _cache.remove(native);
+    }
 }
 
 /**
