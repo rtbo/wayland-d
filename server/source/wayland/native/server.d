@@ -380,177 +380,91 @@ version(WlDynamic)
     __gshared
     {
         da_wl_event_loop_create wl_event_loop_create;
-
         da_wl_event_loop_destroy wl_event_loop_destroy;
-
         da_wl_event_loop_add_fd wl_event_loop_add_fd;
-
         da_wl_event_source_fd_update wl_event_source_fd_update;
-
         da_wl_event_loop_add_timer wl_event_loop_add_timer;
-
         da_wl_event_loop_add_signal wl_event_loop_add_signal;
-
         da_wl_event_source_timer_update wl_event_source_timer_update;
-
         da_wl_event_source_remove wl_event_source_remove;
-
         da_wl_event_source_check wl_event_source_check;
-
         da_wl_event_loop_dispatch wl_event_loop_dispatch;
-
         da_wl_event_loop_dispatch_idle wl_event_loop_dispatch_idle;
-
         da_wl_event_loop_add_idle wl_event_loop_add_idle;
-
         da_wl_event_loop_get_fd wl_event_loop_get_fd;
-
         da_wl_event_loop_add_destroy_listener wl_event_loop_add_destroy_listener;
-
         da_wl_event_loop_get_destroy_listener wl_event_loop_get_destroy_listener;
-
         da_wl_display_create wl_display_create;
-
         da_wl_display_destroy wl_display_destroy;
-
         da_wl_display_get_event_loop wl_display_get_event_loop;
-
         da_wl_display_add_socket wl_display_add_socket;
-
         da_wl_display_add_socket_auto wl_display_add_socket_auto;
-
         da_wl_display_add_socket_fd wl_display_add_socket_fd;
-
         da_wl_display_terminate wl_display_terminate;
-
         da_wl_display_run wl_display_run;
-
         da_wl_display_flush_clients wl_display_flush_clients;
-
         da_wl_display_get_serial wl_display_get_serial;
-
         da_wl_display_next_serial wl_display_next_serial;
-
         da_wl_display_add_destroy_listener wl_display_add_destroy_listener;
-
         da_wl_display_add_client_created_listener wl_display_add_client_created_listener;
-
         da_wl_display_get_destroy_listener wl_display_get_destroy_listener;
-
         da_wl_global_create wl_global_create;
-
         da_wl_global_destroy wl_global_destroy;
-
         da_wl_display_set_global_filter wl_display_set_global_filter;
-
         da_wl_global_get_interface wl_global_get_interface;
-
         da_wl_global_get_user_data wl_global_get_user_data;
-
         da_wl_client_create wl_client_create;
-
         da_wl_display_get_client_list wl_display_get_client_list;
-
         da_wl_client_get_link wl_client_get_link;
-
         da_wl_client_from_link wl_client_from_link;
-
         da_wl_client_destroy wl_client_destroy;
-
         da_wl_client_flush wl_client_flush;
-
         da_wl_client_get_credentials wl_client_get_credentials;
-
         da_wl_client_get_fd wl_client_get_fd;
-
         da_wl_client_add_destroy_listener wl_client_add_destroy_listener;
-
         da_wl_client_get_destroy_listener wl_client_get_destroy_listener;
-
         da_wl_client_get_object wl_client_get_object;
-
         da_wl_client_post_no_memory wl_client_post_no_memory;
-
         da_wl_client_add_resource_created_listener wl_client_add_resource_created_listener;
-
         da_wl_client_for_each_resource wl_client_for_each_resource;
-
         da_wl_resource_post_event wl_resource_post_event;
-
         da_wl_resource_post_event_array wl_resource_post_event_array;
-
         da_wl_resource_queue_event wl_resource_queue_event;
-
         da_wl_resource_queue_event_array wl_resource_queue_event_array;
-
         da_wl_resource_post_error wl_resource_post_error;
-
         da_wl_resource_post_no_memory wl_resource_post_no_memory;
-
         da_wl_client_get_display wl_client_get_display;
-
         da_wl_resource_create wl_resource_create;
-
         da_wl_resource_set_implementation wl_resource_set_implementation;
-
         da_wl_resource_set_dispatcher wl_resource_set_dispatcher;
-
         da_wl_resource_destroy wl_resource_destroy;
-
         da_wl_resource_get_id wl_resource_get_id;
-
         da_wl_resource_get_link wl_resource_get_link;
-
         da_wl_resource_from_link wl_resource_from_link;
-
         da_wl_resource_find_for_client wl_resource_find_for_client;
-
         da_wl_resource_get_client wl_resource_get_client;
-
         da_wl_resource_set_user_data wl_resource_set_user_data;
-
         da_wl_resource_get_user_data wl_resource_get_user_data;
-
         da_wl_resource_get_version wl_resource_get_version;
-
         da_wl_resource_set_destructor wl_resource_set_destructor;
-
         da_wl_resource_instance_of wl_resource_instance_of;
-
         da_wl_resource_get_class wl_resource_get_class;
-
         da_wl_resource_add_destroy_listener wl_resource_add_destroy_listener;
-
         da_wl_resource_get_destroy_listener wl_resource_get_destroy_listener;
-
         da_wl_shm_buffer_get wl_shm_buffer_get;
-
         da_wl_shm_buffer_begin_access wl_shm_buffer_begin_access;
-
         da_wl_shm_buffer_end_access wl_shm_buffer_end_access;
-
         da_wl_shm_buffer_get_data wl_shm_buffer_get_data;
-
         da_wl_shm_buffer_get_stride wl_shm_buffer_get_stride;
-
         da_wl_shm_buffer_get_format wl_shm_buffer_get_format;
-
         da_wl_shm_buffer_get_width wl_shm_buffer_get_width;
-
         da_wl_shm_buffer_get_height wl_shm_buffer_get_height;
-
         da_wl_shm_buffer_ref_pool wl_shm_buffer_ref_pool;
-
         da_wl_shm_pool_unref wl_shm_pool_unref;
-
         da_wl_display_init_shm wl_display_init_shm;
-
         da_wl_display_add_shm_format wl_display_add_shm_format;
-
         da_wl_log_set_handler_server wl_log_set_handler_server;
-
         da_wl_display_add_protocol_logger wl_display_add_protocol_logger;
-
         da_wl_protocol_logger_destroy wl_protocol_logger_destroy;
     }
 }
