@@ -12,29 +12,53 @@ class WlDisplayBase : Native!wl_display
     mixin nativeImpl!(wl_display);
 
     alias DestroyDg = void delegate();
+    alias ClientCreatedDg = void delegate(WlClient);
 
     // one loop per display, so no need to use an object store
     private WlEventLoop _loop;
+
     private DestroyDg _destroyDg;
+    private ClientCreatedDg _clientCreatedDg;
+
+    private WlClient[] _clients;
+
 
     static WlDisplayBase create()
     {
         // FIXME: instantiate the protocol object
-        return new WlDisplayBase(
-            wl_display_create()
-        );
+        auto natDpy = wl_display_create();
+        auto dpy = new WlDisplayBase(natDpy);
+
+        ObjectCache.set(natDpy, dpy);
+
+        wl_display_add_destroy_listener(natDpy, &displayDestroyListener);
+        wl_display_add_client_created_listener(natDpy, &clientCreatedListener);
+
+        return dpy;
     }
 
-    this (wl_display* native)
+    protected this (wl_display* native)
     {
         _native = native;
     }
 
     void destroy()
     {
-        if (_destroyDg) _destroyDg();
         wl_display_destroy(native);
+        assert(!ObjectCache.get(native));
         _native = null;
+        _destroyDg = null;
+        _clientCreatedDg = null;
+    }
+
+    @property void onDestroy(DestroyDg dg)
+    {
+        _destroyDg = dg;
+    }
+
+    @property void onClientCreated(ClientCreatedDg dg)
+    {
+        _clientCreatedDg = dg;
     }
 
     @property WlEventLoop eventLoop()
@@ -88,7 +112,36 @@ class WlDisplayBase : Native!wl_display
         _destroyDg = dg;
     }
 
+    WlClient createClient(int fd)
+    {
+        auto natCl = wl_client_create(native, fd);
+        WlClient cl = cast(WlClient)ObjectCache.get(natCl);
+        assert(cl, "could not retrieve client from obj cache");
+        return cl;
+    }
 
+    @property WlClient[] clients()
+    {
+        return _clients;
+    }
+
+    private void registerNewClient(wl_client* natCl)
+    {
+        auto cl = new WlClient(natCl);
+        ObjectCache.set(natCl, cl);
+        _clients ~= cl;
+        if (_clientCreatedDg) _clientCreatedDg(cl);
+    }
+
+    private void unregisterClient(wl_client* natCl)
+    {
+        import std.algorithm : remove;
+        WlClient cl = cast(WlClient)ObjectCache.get(natCl);
+        assert(cl, "could not retrieve client from obj cache");
+        if (cl._onDestroy) cl._onDestroy(cl);
+        _clients = _clients.remove!(c => c is cl);
+        ObjectCache.remove(natCl);
+    }
 }
 
 
@@ -96,8 +149,7 @@ class WlEventLoop : Native!wl_event_loop
 {
     mixin nativeImpl!(wl_event_loop);
 
-    alias DestroyDg = void delegate();
-
+    alias DestroyDg = void delegate(WlEventLoop loop);
     nothrow
     {
         alias FdDg = int delegate (int fd, uint mask);
@@ -108,27 +160,29 @@ class WlEventLoop : Native!wl_event_loop
 
     private DestroyDg _destroyDg;
 
-    this()
-    {
-        _native = wl_event_loop_create();
-    }
-
     this (wl_event_loop* native)
     {
         _native = native;
+        ObjectCache.set(native, this);
+        wl_event_loop_add_destroy_listener(native, &evLoopDestroyListener);
+    }
+
+    this()
+    {
+        this(wl_event_loop_create());
+    }
+
+    void destroy()
+    {
+        wl_event_loop_destroy(_native);
+        assert(!ObjectCache.get(native));
+        _destroyDg = null;
+        _native = null;
     }
 
     @property void destroyListener(DestroyDg dg)
     {
         _destroyDg = dg;
-    }
-
-    void destroy()
-    {
-        if (_destroyDg) _destroyDg();
-        wl_event_loop_destroy(_native);
-        _destroyDg = null;
-        _native = null;
     }
 
     @property int fd()
@@ -265,8 +319,111 @@ class WlIdleEventSource : WlEventSource
     }
 }
 
+class WlClient : Native!wl_client
+{
+    mixin nativeImpl!wl_client;
+
+    alias DestroyDg = void delegate(WlClient);
+    alias ResourceCreatedDg = void delegate(WlResource);
+
+    DestroyDg _onDestroy;
+    ResourceCreatedDg _onResourceCreated;
+
+    this (wl_client* native)
+    {
+        _native = native;
+        ObjectCache.set(native, this);
+        wl_client_add_destroy_listener(native, &clientDestroyListener);
+        wl_client_add_resource_created_listener(native, &resourceCreatedListener);
+    }
+
+    void destroy()
+    {
+        wl_client_destroy(native);
+        _onDestroy = null;
+        _onResourceCreated = null;
+        _native = null;
+    }
+}
+
+class WlResource : Native!wl_resource
+{
+    mixin nativeImpl!wl_resource;
+
+    alias DestroyDg = void delegate(WlResource);
+    DestroyDg _onDestroy;
+
+    this (wl_resource* native)
+    {
+        _native = native;
+        ObjectCache.set(native, this);
+        wl_resource_add_destroy_listener(native, &resourceDestroyListener);
+    }
+
+    void destroy()
+    {
+        wl_resource_destroy(native);
+        ObjectCache.remove(native);
+        _onDestroy = null;
+        _native = null;
+    }
+}
+
 private extern(C) nothrow
 {
+    void displayDestroy(wl_listener*, void* data)
+    {
+        nothrowFnWrapper!({
+            auto dpy = cast(WlDisplayBase)ObjectCache.get(data);
+            assert(dpy);
+            if (dpy._destroyDg) dpy._destroyDg();
+            ObjectCache.remove(data);
+        });
+    }
+
+    void eventLoopDestroy(wl_listener*, void* data)
+    {
+        nothrowFnWrapper!({
+            auto el = cast(WlEventLoop)ObjectCache.get(data);
+            assert(el);
+            if (el._destroyDg) el._destroyDg(el);
+            ObjectCache.remove(data);
+        });
+    }
+
+    void clientCreated(wl_listener*, void* data)
+    {
+        nothrowFnWrapper!({
+            auto natCl = cast(wl_client*)data;
+            auto natDpy = wl_client_get_display(natCl);
+            auto dpy = cast(WlDisplayBase)ObjectCache.get(natDpy);
+            assert(dpy, "could not retrieve display from obj cache");
+            dpy.registerNewClient(natCl);
+        });
+    }
+
+    void clientDestroy(wl_listener* listener, void* data)
+    {
+        nothrowFnWrapper!({
+            auto natCl = cast(wl_client*)data;
+            auto natDpy = wl_client_get_display(natCl);
+            auto dpy = cast(WlDisplayBase)ObjectCache.get(natDpy);
+            assert(dpy, "could not retrieve display from obj cache");
+            dpy.unregisterClient(natCl);
+        });
+    }
+
+    void resourceCreated(wl_listener* listener, void* data)
+    {
+
+    }
+
+    void resourceDestroy(wl_listener* listener, void* data)
+    {
+
+    }
+
+
     int eventLoopFdFunc(int fd, uint mask, void* data)
     {
         auto dg = *cast(WlEventLoop.FdDg*)data;
@@ -290,4 +447,21 @@ private extern(C) nothrow
         auto dg = *cast(WlEventLoop.IdleDg*)data;
         dg();
     }
+
+    __gshared wl_listener displayDestroyListener;
+    __gshared wl_listener evLoopDestroyListener;
+    __gshared wl_listener clientCreatedListener;
+    __gshared wl_listener clientDestroyListener;
+    __gshared wl_listener resourceCreatedListener;
+    __gshared wl_listener resourceDestroyListener;
+}
+
+shared static this()
+{
+    displayDestroyListener.notify = &displayDestroy;
+    evLoopDestroyListener.notify = &eventLoopDestroy;
+    clientCreatedListener.notify = &clientCreated;
+    clientDestroyListener.notify = &clientDestroy;
+    resourceCreatedListener.notify = &resourceCreated;
+    resourceDestroyListener.notify = &resourceDestroy;
 }
