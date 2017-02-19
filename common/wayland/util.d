@@ -75,6 +75,16 @@ void nothrowFnWrapper(alias fn)() nothrow
     }
 }
 
+
+private __gshared Object[void*] _objCache;
+
+/// static cache of objects that are looked-up by the address of their native
+/// counter part
+@property Object[void*] objectCache()
+{
+    return _objCache;
+}
+
 /**
  * Fixed-point number
  *
