@@ -776,9 +776,13 @@ class Interface
 
     @property size_t nullIfaceTypeLength()
     {
-        return chain(requests, events)
-            .map!(msg => msg.nullIfaceTypeLength)
-            .maxElement();
+        size_t max =0;
+        foreach (tl; chain(requests, events)
+                .map!(msg => msg.nullIfaceTypeLength))
+        {
+            if (tl > max) max = tl;
+        }
+        return max;
     }
 
     void writeConstants(SourceFile sf)
@@ -1116,9 +1120,13 @@ class Protocol
 
     void writePrivMsgTypes(SourceFile sf)
     {
-        immutable nullLength = ifaces
-            .map!(iface => iface.nullIfaceTypeLength)
-            .maxElement();
+        size_t max =0;
+        foreach (l; ifaces.map!(iface => iface.nullIfaceTypeLength))
+        {
+            if (l > max) max = l;
+        }
+
+        immutable nullLength = max;
         size_t typeIndex = 0;
 
         sf.writeln("auto msgTypes = [");
