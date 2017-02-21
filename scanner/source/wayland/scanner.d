@@ -754,6 +754,10 @@ class Interface : ClientCodeGen
     Message[] events;
     Enum[] enums;
 
+    // indicate that is created by server rather than by client request.
+    // protocal eventually set to false after all interfaces are parsed
+    bool isGlobal = true;
+
     this (Element el, string protocol)
     {
         assert(el.tagName == "interface");
@@ -1002,9 +1006,27 @@ class Protocol
             copyright = cr.getElText();
             break;
         }
+        Interface[string] ifaceMap;
         foreach (ifEl; el.getElementsByTagName("interface"))
         {
-            ifaces ~= new Interface(ifEl, name);
+            auto iface = new Interface(ifEl, name);
+            ifaceMap[iface.name] = iface;
+            ifaces ~= iface;
+        }
+
+        foreach(iface; ifaces)
+        {
+            foreach(req; iface.requests)
+            {
+                foreach(arg; req.args)
+                {
+                    if (arg.type == ArgType.NewId)
+                    {
+                        auto ifp = arg.iface in ifaceMap;
+                        if (ifp) ifp.isGlobal = false;
+                    }
+                }
+            }
         }
     }
 
