@@ -144,7 +144,7 @@ class Description
         return summary.empty && text.empty;
     }
 
-    void writeClientCode(SourceFile sf)
+    void writeCode(SourceFile sf)
     {
         if (empty) return;
         if (text.empty)
@@ -184,7 +184,7 @@ class EnumEntry
         enforce(!value.empty, "enum entries without value aren't supported");
     }
 
-    void writeClientCode(SourceFile sf)
+    void writeCode(SourceFile sf)
     {
         if (summary.length)
         {
@@ -226,14 +226,14 @@ class Enum
         return entries.any!(e => !e.summary.empty);
     }
 
-    void writeClientCode(SourceFile sf)
+    void writeCode(SourceFile sf)
     {
-        description.writeClientCode(sf);
+        description.writeCode(sf);
         sf.writeln("enum %s : uint", dName);
         sf.bracedBlock!({
             foreach(entry; entries)
             {
-                entry.writeClientCode(sf);
+                entry.writeCode(sf);
             }
         });
     }
@@ -569,7 +569,7 @@ class Message
 
     void writeClientRequestCode(SourceFile sf)
     {
-        description.writeClientCode(sf);
+        description.writeCode(sf);
         // writing sig
         auto ret = clientReqReturn;
         immutable fstLine = format("%s %s(", ret[1], dReqName);
@@ -664,7 +664,7 @@ class Message
 
     void writeClientEventDgAccessor(SourceFile sf)
     {
-        description.writeClientCode(sf);
+        description.writeCode(sf);
         sf.writeln("@property void %s(%s dg)", dEvName, dEvDgType);
         sf.bracedBlock!({
             sf.writeln("_%s = dg;", dEvName);
@@ -840,7 +840,7 @@ class Interface
 
     void writeClientCode(SourceFile sf)
     {
-        description.writeClientCode(sf);
+        description.writeCode(sf);
 
         sf.writeln("final class %s : %s", dName,
             name == "wl_display" ?
@@ -881,7 +881,7 @@ class Interface
             foreach (en; enums)
             {
                 sf.writeln();
-                en.writeClientCode(sf);
+                en.writeCode(sf);
             }
             writeClientDtorCode(sf);
             foreach (msg; requests)
