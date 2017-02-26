@@ -1,6 +1,7 @@
 // Copyright © 2017 Rémi Thebault
 module wayland.server.core;
 
+import wayland.server.protocol;
 import wayland.native.server;
 import wayland.util;
 
@@ -8,145 +9,6 @@ import std.string;
 import std.exception : enforce;
 import core.sys.posix.sys.types;
 
-
-class WlDisplayBase : Native!wl_display
-{
-    mixin nativeImpl!(wl_display);
-
-    alias DestroyDg = void delegate();
-    alias ClientCreatedDg = void delegate(WlClient);
-
-    // one loop per display, so no need to use an object store
-    private WlEventLoop _loop;
-
-    private DestroyDg _onDestroy;
-    private ClientCreatedDg _onClientCreated;
-
-    private WlClient[] _clients;
-
-
-    static WlDisplayBase create()
-    {
-        // FIXME: instantiate the protocol object
-        auto natDpy = wl_display_create();
-        auto dpy = new WlDisplayBase(natDpy);
-
-        ObjectCache.set(natDpy, dpy);
-
-        wl_display_add_destroy_listener(natDpy, &displayDestroyListener);
-        wl_display_add_client_created_listener(natDpy, &clientCreatedListener);
-
-        return dpy;
-    }
-
-    protected this (wl_display* native)
-    {
-        _native = native;
-    }
-
-    void destroy()
-    {
-        wl_display_destroy(native);
-        assert(!ObjectCache.get(native));
-        _native = null;
-        _onDestroy = null;
-        _onClientCreated = null;
-    }
-
-    @property void onDestroy(DestroyDg dg)
-    {
-        _onDestroy = dg;
-    }
-
-    @property void onClientCreated(ClientCreatedDg dg)
-    {
-        _onClientCreated = dg;
-    }
-
-    @property WlEventLoop eventLoop()
-    {
-        if (!_loop) _loop = new WlEventLoop(wl_display_get_event_loop(native));
-        return _loop;
-    }
-
-    int addSocket(string name)
-    {
-        return wl_display_add_socket(native, toStringz(name));
-    }
-
-    string addSocketAuto()
-    {
-        return fromStringz(wl_display_add_socket_auto(native)).idup;
-    }
-
-    int addSocketFd(int fd)
-    {
-        return wl_display_add_socket_fd(native, fd);
-    }
-
-    void terminate()
-    {
-        wl_display_terminate(native);
-    }
-
-    void run()
-    {
-        wl_display_run(native);
-    }
-
-    void flushClients()
-    {
-        wl_display_flush_clients(native);
-    }
-
-    @property uint serial()
-    {
-        return wl_display_get_serial(native);
-    }
-
-    uint nextSerial()
-    {
-        return wl_display_next_serial(native);
-    }
-
-    @property void destroyListener(DestroyDg dg)
-    {
-        _onDestroy = dg;
-    }
-
-    WlClient createClient(int fd)
-    {
-        auto natCl = wl_client_create(native, fd);
-        WlClient cl = cast(WlClient)ObjectCache.get(natCl);
-        assert(cl, "could not retrieve client from obj cache");
-        return cl;
-    }
-
-    @property WlClient[] clients()
-    {
-        return _clients;
-    }
-
-    private void registerNewClient(wl_client* natCl)
-    {
-        auto cl = new WlClient(natCl);
-        ObjectCache.set(natCl, cl);
-        _clients ~= cl;
-        if (_onClientCreated) _onClientCreated(cl);
-    }
-
-    private void unregisterClient(wl_client* natCl)
-    {
-        import std.algorithm : remove;
-        WlClient cl = cast(WlClient)ObjectCache.get(natCl);
-        assert(cl, "could not retrieve client from obj cache");
-        if (cl._onDestroy) cl._onDestroy(cl);
-        _clients = _clients.remove!(c => c is cl);
-        cl._onDestroy = null;
-        cl._native = null;
-        ObjectCache.remove(natCl);
-    }
-}
 
 
 class WlEventLoop : Native!wl_event_loop
@@ -322,6 +184,145 @@ class WlIdleEventSource : WlEventSource
 }
 
 
+class WlDisplayBase : Native!wl_display
+{
+    mixin nativeImpl!(wl_display);
+
+    alias DestroyDg = void delegate();
+    alias ClientCreatedDg = void delegate(WlClient);
+
+    // one loop per display, so no need to use an object store
+    private WlEventLoop _loop;
+
+    private DestroyDg _onDestroy;
+    private ClientCreatedDg _onClientCreated;
+
+    private WlClient[] _clients;
+
+
+    static WlDisplay create()
+    {
+        auto natDpy = wl_display_create();
+        auto dpy = new WlDisplay(natDpy);
+
+        ObjectCache.set(natDpy, dpy);
+
+        wl_display_add_destroy_listener(natDpy, &displayDestroyListener);
+        wl_display_add_client_created_listener(natDpy, &clientCreatedListener);
+
+        return dpy;
+    }
+
+    protected this (wl_display* native)
+    {
+        _native = native;
+    }
+
+    void destroy()
+    {
+        wl_display_destroy(native);
+        assert(!ObjectCache.get(native));
+        _native = null;
+        _onDestroy = null;
+        _onClientCreated = null;
+    }
+
+    @property void onDestroy(DestroyDg dg)
+    {
+        _onDestroy = dg;
+    }
+
+    @property void onClientCreated(ClientCreatedDg dg)
+    {
+        _onClientCreated = dg;
+    }
+
+    @property WlEventLoop eventLoop()
+    {
+        if (!_loop) _loop = new WlEventLoop(wl_display_get_event_loop(native));
+        return _loop;
+    }
+
+    int addSocket(string name)
+    {
+        return wl_display_add_socket(native, toStringz(name));
+    }
+
+    string addSocketAuto()
+    {
+        return fromStringz(wl_display_add_socket_auto(native)).idup;
+    }
+
+    int addSocketFd(int fd)
+    {
+        return wl_display_add_socket_fd(native, fd);
+    }
+
+    void terminate()
+    {
+        wl_display_terminate(native);
+    }
+
+    void run()
+    {
+        wl_display_run(native);
+    }
+
+    void flushClients()
+    {
+        wl_display_flush_clients(native);
+    }
+
+    @property uint serial()
+    {
+        return wl_display_get_serial(native);
+    }
+
+    uint nextSerial()
+    {
+        return wl_display_next_serial(native);
+    }
+
+    @property void destroyListener(DestroyDg dg)
+    {
+        _onDestroy = dg;
+    }
+
+    WlClient createClient(int fd)
+    {
+        auto natCl = wl_client_create(native, fd);
+        WlClient cl = cast(WlClient)ObjectCache.get(natCl);
+        assert(cl, "could not retrieve client from obj cache");
+        return cl;
+    }
+
+    @property WlClient[] clients()
+    {
+        return _clients;
+    }
+
+    private void registerNewClient(wl_client* natCl)
+    {
+        auto cl = new WlClient(natCl);
+        ObjectCache.set(natCl, cl);
+        _clients ~= cl;
+        if (_onClientCreated) _onClientCreated(cl);
+    }
+
+    private void unregisterClient(wl_client* natCl)
+    {
+        import std.algorithm : remove;
+        WlClient cl = cast(WlClient)ObjectCache.get(natCl);
+        assert(cl, "could not retrieve client from obj cache");
+        if (cl._onDestroy) cl._onDestroy(cl);
+        _clients = _clients.remove!(c => c is cl);
+        cl._onDestroy = null;
+        cl._native = null;
+        ObjectCache.remove(natCl);
+    }
+}
+
+
 class WlGlobal : Native!wl_global
 {
     mixin nativeImpl!wl_global;
@@ -471,7 +472,6 @@ class WlResource : Native!wl_resource
         return fromStringz(wl_resource_get_class(native)).idup;
     }
 }
-
 
 private extern(C) nothrow
 {
