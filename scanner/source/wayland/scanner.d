@@ -427,6 +427,19 @@ class Arg
 
 class Message
 {
+    enum Type
+    {
+        event,
+        request,
+    }
+
+    enum ReqType
+    {
+        void_,
+        newObj,
+        dynObj,
+    }
+
     string name;
     string ifaceName;
     int since = 1;
@@ -436,6 +449,11 @@ class Message
 
     string[] argIfaceTypes;
     size_t ifaceTypeIndex;
+    Type type;
+    ReqType reqType;
+
+    Arg reqRet;
+    string reqRetStr;
 
     this (Element el, string ifaceName)
     {
@@ -458,6 +476,47 @@ class Message
             .map!(a => a.iface)
             .filter!(iface => iface.length != 0)
             .array();
+
+        type = el.tagName == "event" ? Type.event : Type.request;
+
+        if (type == Type.request)
+        {
+            auto crr = clientReqReturn;
+            reqRet = crr[0];
+            reqRetStr = crr[1];
+            reqType = crr[2];
+        }
+    }
+
+    @property Tuple!(Arg, string, ReqType) clientReqReturn()
+    {
+        Arg ret;
+        string retStr;
+        ReqType rt;
+        foreach (arg; args)
+        {
+            if (arg.type == ArgType.NewId)
+            {
+                enforce(!ret, "more than 1 new-id for a request");
+                ret = arg;
+                if (arg.iface.length)
+                {
+                    retStr = ifaceDName(arg.iface);
+                    rt = ReqType.newObj;
+                }
+                else
+                {
+                    retStr = "WlProxy";
+                    rt = ReqType.dynObj;
+                }
+            }
+        }
+        if (!ret)
+        {
+            retStr = "void";
+            rt = ReqType.void_;
+        }
+        return tuple(ret, retStr, rt);
     }
 
     @property bool ifaceTypesAllNull() const
@@ -543,109 +602,139 @@ class Message
         return sig;
     }
 
-    @property Tuple!(Arg, string) clientReqReturn()
+    void writeSig(SourceFile sf, string ret, string[] prepArgs)
     {
-        Arg ret;
-        string retStr;
-        foreach (arg; args)
+        immutable fstLine = format("%s %s(", ret, dReqName);
+        immutable indent = ' '.repeat(fstLine.length).array();
+        sf.write(fstLine);
+        foreach (i, pa; prepArgs)
         {
-            if (arg.type == ArgType.NewId)
+            if (i != 0)
             {
-                enforce(!ret, "more than 1 new-id for a request");
-                ret = arg;
-                if (arg.iface.length)
-                {
-                    retStr = ifaceDName(arg.iface);
-                }
-                else
-                {
-                    retStr = "WlProxy";
-                }
+                sf.writeln(",");
+                sf.write(indent);
+            }
+            sf.write(pa);
+        }
+        sf.writeln(")");
+    }
+
+    void writeVoidReqDefinitionCode(SourceFile sf)
+    {
+        string[] prepArgs;
+        string[] prepExpr = [
+            "proxy", reqOpCode
+        ];
+        foreach(arg; args)
+        {
+            prepArgs ~= (arg.dType ~ " " ~ arg.paramName);
+            prepExpr ~= arg.cCastExpr;
+        }
+        description.writeCode(sf);
+        writeSig(sf, "void", prepArgs);
+        sf.bracedBlock!({
+            sf.writeln("wl_proxy_marshal(");
+            foreach(i, pe; prepExpr)
+            {
+                if (i == 0) sf.write("    ");
+                else sf.write(", ");
+                sf.write(pe);
+            }
+            sf.writeln();
+            sf.writeln(");");
+            if (isDtor) sf.writeln("super.destroyNotify();");
+        });
+    }
+
+    void writeNewObjReqDefinitionCode(SourceFile sf)
+    {
+        string[] prepArgs;
+        string[] prepExpr = [
+            "proxy", reqOpCode, format("%s.iface.native", ifaceDName(reqRet.iface))
+        ];
+        foreach(arg; args)
+        {
+            if (arg is reqRet)
+            {
+                prepExpr ~= "null";
+            }
+            else
+            {
+                prepArgs ~= format("%s %s", arg.dType, arg.paramName);
+                prepExpr ~= arg.cCastExpr;
             }
         }
-        if (!ret) retStr = "void";
-        return tuple(ret, retStr);
+        description.writeCode(sf);
+        writeSig(sf, reqRetStr, prepArgs);
+        sf.bracedBlock!({
+            sf.writeln("auto _pp = wl_proxy_marshal_constructor(");
+            foreach(i, pe; prepExpr)
+            {
+                if (i == 0) sf.write("    ");
+                else sf.write(", ");
+                sf.write(pe);
+            }
+            sf.writeln();
+            sf.writeln(");");
+            sf.writeln("if (!_pp) return null;");
+            sf.writeln("auto _p = WlProxy.get(_pp);");
+            sf.writeln("if (_p) return cast(%s)_p;", reqRetStr);
+            sf.writeln("return new %s(_pp);", reqRetStr);
+        });
+    }
+
+    void writeDynObjReqDefinitionCode(SourceFile sf)
+    {
+        string[] prepArgs;
+        string[] prepExpr = [
+            "proxy", reqOpCode, "iface.native", "ver"
+        ];
+        foreach(arg; args)
+        {
+            if (arg is reqRet)
+            {
+                prepArgs ~= [ "immutable(WlProxyInterface) iface", "uint ver" ];
+                prepExpr ~= [ "iface.native.name", "ver" ];
+            }
+            else
+            {
+                prepArgs ~= format("%s %s", arg.dType, arg.paramName);
+                prepExpr ~= arg.cCastExpr;
+            }
+        }
+        description.writeCode(sf);
+        writeSig(sf, reqRetStr, prepArgs);
+        sf.bracedBlock!({
+            sf.writeln("auto _pp = wl_proxy_marshal_constructor_versioned(");
+            foreach(i, pe; prepExpr)
+            {
+                if (i == 0) sf.write("    ");
+                else sf.write(", ");
+                sf.write(pe);
+            }
+            sf.writeln();
+            sf.writeln(");");
+            sf.writeln("if (!_pp) return null;");
+            sf.writeln("auto _p = WlProxy.get(_pp);");
+            sf.writeln("if (_p) return _p;");
+            sf.writeln("return iface.makeProxy(_pp);");
+        });
     }
 
     void writeClientRequestCode(SourceFile sf)
     {
-        description.writeCode(sf);
-        // writing sig
-        auto ret = clientReqReturn;
-        immutable fstLine = format("%s %s(", ret[1], dReqName);
-        immutable indent = ' '.repeat(fstLine.length).array();
-        sf.write(fstLine);
-        bool hadLine;
-        foreach (i, arg; args)
+        final switch(reqType)
         {
-            if (hadLine) sf.writeln(","); // write previous comma
-
-            string line;
-            if (arg.type == ArgType.NewId && arg.iface.empty)
-                line = "immutable(WlProxyInterface) iface, uint ver";
-            else if (arg.type != ArgType.NewId)
-                line = format("%s %s", arg.dType, arg.paramName);
-
-            if (hadLine && line) sf.write(indent);
-            sf.write(line);
-            if (line.length) hadLine = true;
+        case ReqType.void_:
+            writeVoidReqDefinitionCode(sf);
+            break;
+        case ReqType.newObj:
+            writeNewObjReqDefinitionCode(sf);
+            break;
+        case ReqType.dynObj:
+            writeDynObjReqDefinitionCode(sf);
+            break;
         }
-        sf.writeln(")");
-        // writing body
-
-        void writeArgVals()
-        {
-            foreach (arg; args)
-            {
-                if (arg.type == ArgType.NewId)
-                {
-                    if (arg.iface.empty)
-                        sf.write(", iface.native.name, ver");
-                    sf.write(", null");
-                }
-                else
-                {
-                    sf.write(", %s", arg.cCastExpr);
-                }
-            }
-        }
-
-        sf.bracedBlock!({
-            if (ret[0] && ret[0].iface.empty)
-            {
-                sf.writeln("auto _pp = wl_proxy_marshal_constructor_versioned(");
-                sf.write("    proxy, %s, iface.native, ver", reqOpCode);
-                writeArgVals();
-                sf.writeln();
-                sf.writeln(");");
-                sf.writeln("if (!_pp) return null;");
-                sf.writeln("auto _p = WlProxy.get(_pp);");
-                sf.writeln("if (_p) return _p;");
-                sf.writeln("return iface.makeProxy(_pp);");
-            }
-            else if (ret[0])
-            {
-                sf.writeln("auto _pp = wl_proxy_marshal_constructor(");
-                sf.write("    proxy, %s, %s.iface.native",
-                        reqOpCode, ifaceDName(ret[0].iface));
-                writeArgVals();
-                sf.writeln();
-                sf.writeln(");");
-                sf.writeln("if (!_pp) return null;");
-                sf.writeln("auto _p = WlProxy.get(_pp);");
-                sf.writeln("if (_p) return cast(%s)_p;", ret[1]);
-                sf.writeln("return new %s(_pp);", ret[1]);
-            }
-            else
-            {
-                sf.writeln("wl_proxy_marshal(");
-                sf.write("    proxy, %s", reqOpCode);
-                writeArgVals();
-                sf.writeln();
-                sf.writeln(");");
-                if (isDtor) sf.writeln("super.destroyNotify();");
-            }
-        });
     }
 
     void writeClientEventDgAlias(SourceFile sf)
