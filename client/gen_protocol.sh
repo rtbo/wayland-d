@@ -16,6 +16,7 @@ fi
 cd $WL_D_DIR
 
 dub run wayland-d:scanner -- \
+                -c client \
                 -m wayland.client.protocol \
                 -i $PROTOCOL \
                 -o $CLIENT_SRC
