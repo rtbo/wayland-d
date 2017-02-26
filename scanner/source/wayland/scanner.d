@@ -58,8 +58,6 @@ int main(string[] args)
         return 1;
     }
 
-    enforce(opt.code == GenCode.client, "Only client generator is implemented at this time");
-
     try
     {
         File input = (opt.inFile.empty) ? stdin : File(opt.inFile, "r");
@@ -73,7 +71,10 @@ int main(string[] args)
         auto xmlDoc = new Document;
         xmlDoc.parse(xmlStr, true, true);
         auto p = new Protocol(xmlDoc.root);
-        p.writeClientCode(new SourceFile(output), opt);
+        if (opt.code == GenCode.client)
+            p.writeClientCode(new SourceFile(output), opt);
+        else
+            p.writeServerCode(new SourceFile(output), opt);
     }
     catch(Exception ex)
     {
@@ -910,7 +911,53 @@ class Interface
         });
     }
 
-    void writePrivListener(SourceFile sf)
+    void writeServerGlobalCode(SourceFile sf)
+    {
+        sf.writeln("class Global : WlGlobal");
+        sf.bracedBlock!({
+            sf.writeln("this(wl_global* native)");
+            sf.bracedBlock!({
+                sf.writeln("super(native);");
+            });
+        });
+    }
+
+    void writeServerResourceCode(SourceFile sf)
+    {
+        sf.writeln("class Resource : WlResource");
+        sf.bracedBlock!({
+            sf.writeln("this(wl_resource* native)");
+            sf.bracedBlock!({
+                sf.writeln("super(native);");
+            });
+        });
+    }
+
+    void writeServerCode(SourceFile sf)
+    {
+        immutable heritage = name == "wl_display" ? " : WlDisplayBase" : "";
+        sf.writeln("class %s%s", dName, heritage);
+        sf.bracedBlock!({
+            if (name == "wl_display")
+            {
+                sf.writeln("this(wl_display* native)");
+                sf.bracedBlock!({
+                    sf.writeln("super(native);");
+                });
+            }
+            else
+            {
+                if (isGlobal)
+                {
+                    writeServerGlobalCode(sf);
+                    sf.writeln();
+                }
+                writeServerResourceCode(sf);
+            }
+        });
+    }
+
+    void writePrivClientListener(SourceFile sf)
     {
         if (!writeEvents) return;
 
@@ -933,7 +980,7 @@ class Interface
         }
     }
 
-    void writePrivListenerStubs(SourceFile sf)
+    void writePrivClientListenerStubs(SourceFile sf)
     {
         if (!writeEvents) return;
 
@@ -1067,7 +1114,7 @@ class Protocol
         sf.writeln("private:");
         sf.writeln();
 
-        writePrivIfaces(sf);
+        writePrivClientIfaces(sf);
         sf.writeln();
 
         sf.writeln("extern(C) nothrow");
@@ -1075,13 +1122,47 @@ class Protocol
             foreach(i, iface; ifaces)
             {
                 if (i != 0) sf.writeln();
-                iface.writePrivListener(sf);
-                iface.writePrivListenerStubs(sf);
+                iface.writePrivClientListener(sf);
+                iface.writePrivClientListenerStubs(sf);
             }
         });
     }
 
-    void writePrivIfaces(SourceFile sf)
+    void writeServerCode(SourceFile sf, in Options opt)
+    {
+        writeHeader(sf, opt);
+        if (name == "wayland") sf.writeln("import wayland.server.core;");
+        else sf.writeln("import wayland.server;");
+        sf.writeln("import wayland.native.server;");
+        sf.writeln("import wayland.native.util;");
+        sf.writeln("import wayland.util;");
+        sf.writeln();
+
+        foreach(iface; ifaces)
+        {
+            iface.writeServerCode(sf);
+            sf.writeln();
+        }
+
+        // writing private code
+        sf.writeln("private:");
+        sf.writeln();
+
+        //writePrivServerIfaces(sf);
+        sf.writeln();
+
+        sf.writeln("extern(C) nothrow");
+        sf.bracedBlock!({
+            foreach(i, iface; ifaces)
+            {
+                if (i != 0) sf.writeln();
+                //iface.writePrivServerListener(sf);
+                //iface.writePrivServerListenerStubs(sf);
+            }
+        });
+    }
+
+    void writePrivClientIfaces(SourceFile sf)
     {
         foreach(iface; ifaces)
         {
