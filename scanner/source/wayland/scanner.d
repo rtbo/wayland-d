@@ -124,18 +124,7 @@ enum ArgType
 }
 
 
-interface ClientCodeGen
-{
-    void writeClientCode(SourceFile sf);
-}
-
-interface ClientPrivCodeGen
-{
-    void writePrivClientCode(SourceFile sf);
-}
-
-
-class Description : ClientCodeGen
+class Description
 {
     string summary;
     string text;
@@ -155,7 +144,7 @@ class Description : ClientCodeGen
         return summary.empty && text.empty;
     }
 
-    override void writeClientCode(SourceFile sf)
+    void writeClientCode(SourceFile sf)
     {
         if (empty) return;
         if (text.empty)
@@ -175,7 +164,7 @@ class Description : ClientCodeGen
 }
 
 
-class EnumEntry : ClientCodeGen
+class EnumEntry
 {
     string ifaceName;
     string enumName;
@@ -195,7 +184,7 @@ class EnumEntry : ClientCodeGen
         enforce(!value.empty, "enum entries without value aren't supported");
     }
 
-    override void writeClientCode(SourceFile sf)
+    void writeClientCode(SourceFile sf)
     {
         if (summary.length)
         {
@@ -208,7 +197,7 @@ class EnumEntry : ClientCodeGen
 }
 
 
-class Enum : ClientCodeGen
+class Enum
 {
     string name;
     string ifaceName;
@@ -237,7 +226,7 @@ class Enum : ClientCodeGen
         return entries.any!(e => !e.summary.empty);
     }
 
-    override void writeClientCode(SourceFile sf)
+    void writeClientCode(SourceFile sf)
     {
         description.writeClientCode(sf);
         sf.writeln("enum %s : uint", dName);
@@ -744,7 +733,7 @@ class Message
 }
 
 
-class Interface : ClientCodeGen
+class Interface
 {
     string protocol;
     string name;
@@ -845,7 +834,7 @@ class Interface : ClientCodeGen
         }
     }
 
-    override void writeClientCode(SourceFile sf)
+    void writeClientCode(SourceFile sf)
     {
         description.writeClientCode(sf);
 
