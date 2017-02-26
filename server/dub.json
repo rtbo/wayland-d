@@ -6,6 +6,9 @@
 	"description": "D bindings to wayland-server",
 	"copyright": "Copyright © 2017, Rémi Thebault",
 	"license": "MIT",
+	"preGenerateCommands": [
+		"bash $PACKAGE_DIR/gen_protocol.sh"
+	],
 	"sourcePaths": [
 		"source",
 		"../common"
@@ -22,7 +25,10 @@
 		},
 		{
 			"name": "dynamic",
-			"versions": ["WlDynamic"]
+			"versions": ["WlDynamic"],
+			"dependencies": {
+				"derelict-util": "~>2.0.0"
+			}
 		}
 	]
 }
