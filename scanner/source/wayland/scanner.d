@@ -799,7 +799,7 @@ class Interface
             foreach(msg; requests)
             {
                 sf.writeln(
-                    "/// %s protocol version introducing %s.%s.",
+                    "/// Version of %s protocol introducing %s.%s.",
                     protocol, dName, msg.dReqName
                 );
                 sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
