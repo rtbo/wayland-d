@@ -321,6 +321,24 @@ class WlIdleEventSource : WlEventSource
     }
 }
 
+
+class WlGlobal : Native!wl_global
+{
+    mixin nativeImpl!wl_global;
+
+    this (wl_global* wl_global)
+    {
+        _native = native;
+    }
+
+    void destroy()
+    {
+        wl_global_destroy(_native);
+        _native = null;
+    }
+}
+
+
 struct Credentials
 {
     pid_t pid;
