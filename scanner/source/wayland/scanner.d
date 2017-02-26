@@ -602,21 +602,51 @@ class Message
         return sig;
     }
 
-    void writeSig(SourceFile sf, string ret, string[] prepArgs)
+    void writeSig(SourceFile sf, string ret, string name, string[] rtArgs,
+                    string[] ctArgs=[], string constraint="")
     {
-        immutable fstLine = format("%s %s(", ret, dReqName);
+        immutable ctSig = ctArgs.length ? format("!(%(%s, %))", ctArgs) : "";
+        immutable fstLine = format("%s %s%s(", ret, name, ctSig);
         immutable indent = ' '.repeat(fstLine.length).array();
         sf.write(fstLine);
-        foreach (i, pa; prepArgs)
+        foreach (i, rta; rtArgs)
         {
             if (i != 0)
             {
                 sf.writeln(",");
                 sf.write(indent);
             }
-            sf.write(pa);
+            sf.write(rta);
         }
         sf.writeln(")");
+        if (constraint.length)
+        {
+            sf.writeln("if (%s)", constraint);
+        }
+    }
+
+    void writeBody(SourceFile sf, string[] preStmts, string mainStmt,
+                    string[] expr, string[] postStmt)
+    {
+        sf.bracedBlock!({
+            foreach (ps; preStmts)
+            {
+                sf.writeln(ps);
+            }
+            sf.writeln("%s(", mainStmt);
+            foreach (i, e; expr)
+            {
+                if (i == 0) sf.write("    ");
+                else sf.write(", ");
+                sf.write(e);
+            }
+            sf.writeln();
+            sf.writeln(");");
+            foreach (ps; postStmt)
+            {
+                sf.writeln(ps);
+            }
+        });
     }
 
     void writeVoidReqDefinitionCode(SourceFile sf)
@@ -630,20 +660,11 @@ class Message
             prepArgs ~= (arg.dType ~ " " ~ arg.paramName);
             prepExpr ~= arg.cCastExpr;
         }
+        string[] postStmt = isDtor ? ["super.destroyNotify();"] : [];
+
         description.writeCode(sf);
-        writeSig(sf, "void", prepArgs);
-        sf.bracedBlock!({
-            sf.writeln("wl_proxy_marshal(");
-            foreach(i, pe; prepExpr)
-            {
-                if (i == 0) sf.write("    ");
-                else sf.write(", ");
-                sf.write(pe);
-            }
-            sf.writeln();
-            sf.writeln(");");
-            if (isDtor) sf.writeln("super.destroyNotify();");
-        });
+        writeSig(sf, "void", dReqName, prepArgs);
+        writeBody(sf, [], "wl_proxy_marshal", prepExpr, postStmt);
     }
 
     void writeNewObjReqDefinitionCode(SourceFile sf)
@@ -665,22 +686,14 @@ class Message
             }
         }
         description.writeCode(sf);
-        writeSig(sf, reqRetStr, prepArgs);
-        sf.bracedBlock!({
-            sf.writeln("auto _pp = wl_proxy_marshal_constructor(");
-            foreach(i, pe; prepExpr)
-            {
-                if (i == 0) sf.write("    ");
-                else sf.write(", ");
-                sf.write(pe);
-            }
-            sf.writeln();
-            sf.writeln(");");
-            sf.writeln("if (!_pp) return null;");
-            sf.writeln("auto _p = WlProxy.get(_pp);");
-            sf.writeln("if (_p) return cast(%s)_p;", reqRetStr);
-            sf.writeln("return new %s(_pp);", reqRetStr);
-        });
+        writeSig(sf, reqRetStr, dReqName, prepArgs);
+        writeBody(sf, [],
+            "auto _pp = wl_proxy_marshal_constructor", prepExpr,
+            [   "if (!_pp) return null;",
+                "auto _p = WlProxy.get(_pp);",
+                format("if (_p) return cast(%s)_p;", reqRetStr),
+                format("return new %s(_pp);", reqRetStr)    ]
+        );
     }
 
     void writeDynObjReqDefinitionCode(SourceFile sf)
@@ -703,22 +716,14 @@ class Message
             }
         }
         description.writeCode(sf);
-        writeSig(sf, reqRetStr, prepArgs);
-        sf.bracedBlock!({
-            sf.writeln("auto _pp = wl_proxy_marshal_constructor_versioned(");
-            foreach(i, pe; prepExpr)
-            {
-                if (i == 0) sf.write("    ");
-                else sf.write(", ");
-                sf.write(pe);
-            }
-            sf.writeln();
-            sf.writeln(");");
-            sf.writeln("if (!_pp) return null;");
-            sf.writeln("auto _p = WlProxy.get(_pp);");
-            sf.writeln("if (_p) return _p;");
-            sf.writeln("return iface.makeProxy(_pp);");
-        });
+        writeSig(sf, reqRetStr, dReqName, prepArgs);
+        writeBody(sf, [],
+            "auto _pp = wl_proxy_marshal_constructor_versioned", prepExpr,
+            [   "if (!_pp) return null;",
+                "auto _p = WlProxy.get(_pp);",
+                "if (_p) return _p;",
+                "return iface.makeProxy(_pp);"  ]
+        );
     }
 
     void writeClientRequestCode(SourceFile sf)
