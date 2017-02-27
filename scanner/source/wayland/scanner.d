@@ -70,11 +70,14 @@ int main(string[] args)
         }
         auto xmlDoc = new Document;
         xmlDoc.parse(xmlStr, true, true);
-        auto p = new Protocol(xmlDoc.root);
+
         if (opt.code == GenCode.client)
-            p.writeClientCode(new SourceFile(output), opt);
+            fact = new ClientFactory;
         else
-            p.writeServerCode(new SourceFile(output), opt);
+            fact = new ServerFactory;
+
+        auto p = fact.makeProtocol(xmlDoc.root);
+        p.writeCode(new SourceFile(output), opt);
     }
     catch(Exception ex)
     {
@@ -102,6 +105,57 @@ class Options
     string moduleName;
 
     GenCode code;
+}
+
+
+interface Factory
+{
+    Protocol makeProtocol(Element el);
+    Interface makeInterface(Element el, string protocolName);
+    Message makeMessage(Element el, string ifaceName);
+    Arg makeArg(Element el);
+}
+
+Factory fact;
+
+class ClientFactory : Factory
+{
+    override Protocol makeProtocol(Element el)
+    {
+        return new ClientProtocol(el);
+    }
+    override Interface makeInterface(Element el, string protocolName)
+    {
+        return new Interface(el, protocolName);
+    }
+    override Message makeMessage(Element el, string ifaceName)
+    {
+        return new Message(el, ifaceName);
+    }
+    override Arg makeArg(Element el)
+    {
+        return new Arg(el);
+    }
+}
+
+class ServerFactory : Factory
+{
+    override Protocol makeProtocol(Element el)
+    {
+        return new ServerProtocol(el);
+    }
+    override Interface makeInterface(Element el, string protocolName)
+    {
+        return new Interface(el, protocolName);
+    }
+    override Message makeMessage(Element el, string ifaceName)
+    {
+        return new Message(el, ifaceName);
+    }
+    override Arg makeArg(Element el)
+    {
+        return new Arg(el);
+    }
 }
 
 
@@ -469,7 +523,7 @@ class Message
         description = new Description(el);
         foreach (argEl; el.getElementsByTagName("arg"))
         {
-            args ~= new Arg(argEl);
+            args ~= fact.makeArg(argEl);
         }
 
         argIfaceTypes = args
@@ -851,11 +905,11 @@ class Interface
         description = new Description(el);
         foreach (rqEl; el.getElementsByTagName("request"))
         {
-            requests ~= new Message(rqEl, name);
+            requests ~= fact.makeMessage(rqEl, name);
         }
         foreach (evEl; el.getElementsByTagName("event"))
         {
-            events ~= new Message(evEl, name);
+            events ~= fact.makeMessage(evEl, name);
         }
         foreach (enEl; el.getElementsByTagName("enum"))
         {
@@ -1140,7 +1194,7 @@ class Protocol
         Interface[string] ifaceMap;
         foreach (ifEl; el.getElementsByTagName("interface"))
         {
-            auto iface = new Interface(ifEl, name);
+            auto iface = fact.makeInterface(ifEl, name);
             ifaceMap[iface.name] = iface;
             ifaces ~= iface;
         }
@@ -1160,6 +1214,10 @@ class Protocol
             }
         }
     }
+
+    abstract void writeCode(SourceFile sf, in Options opt);
+
+    abstract void writePrivIfaces(SourceFile sf);
 
     bool isLocalIface(string name)
     {
@@ -1184,145 +1242,6 @@ class Protocol
         sf.writeComment(
             "Bindings copyright:\n\n%s", bindingsCopyright
         );
-    }
-
-    void writeClientCode(SourceFile sf, in Options opt)
-    {
-        writeHeader(sf, opt);
-        if (name == "wayland") sf.writeln("import wayland.client.core;");
-        else sf.writeln("import wayland.client;");
-        sf.writeln("import wayland.native.client;");
-        sf.writeln("import wayland.native.util;");
-        sf.writeln("import wayland.util;");
-        sf.writeln();
-        sf.writeln("import std.exception : enforce;");
-        sf.writeln("import std.string : fromStringz, toStringz;");
-        sf.writeln();
-
-        foreach(iface; ifaces)
-        {
-            iface.writeClientCode(sf);
-            sf.writeln();
-        }
-
-        // writing private code
-        sf.writeln("private:");
-        sf.writeln();
-
-        writePrivClientIfaces(sf);
-        sf.writeln();
-
-        sf.writeln("extern(C) nothrow");
-        sf.bracedBlock!({
-            foreach(i, iface; ifaces)
-            {
-                if (i != 0) sf.writeln();
-                iface.writePrivClientListener(sf);
-                iface.writePrivClientListenerStubs(sf);
-            }
-        });
-    }
-
-    void writeServerCode(SourceFile sf, in Options opt)
-    {
-        writeHeader(sf, opt);
-        if (name == "wayland") sf.writeln("import wayland.server.core;");
-        else sf.writeln("import wayland.server;");
-        sf.writeln("import wayland.native.server;");
-        sf.writeln("import wayland.native.util;");
-        sf.writeln("import wayland.util;");
-        sf.writeln();
-
-        foreach(iface; ifaces)
-        {
-            iface.writeServerCode(sf);
-            sf.writeln();
-        }
-
-        // writing private code
-        sf.writeln("private:");
-        sf.writeln();
-
-        writePrivServerIfaces(sf);
-        sf.writeln();
-
-        sf.writeln("extern(C) nothrow");
-        sf.bracedBlock!({
-            foreach(i, iface; ifaces)
-            {
-                if (i != 0) sf.writeln();
-                //iface.writePrivServerListener(sf);
-                //iface.writePrivServerListenerStubs(sf);
-            }
-        });
-    }
-
-    void writePrivClientIfaces(SourceFile sf)
-    {
-        foreach(iface; ifaces)
-        {
-            sf.writeln("immutable WlProxyInterface %sIface;", camelName(iface.name));
-        }
-        foreach (iface; ifaces)
-        {
-            sf.writeln();
-            sf.writeln("immutable final class %sIface : WlProxyInterface",
-                    titleCamelName(iface.name));
-            sf.bracedBlock!({
-                sf.writeln("this(immutable wl_interface* native)");
-                sf.bracedBlock!({
-                    sf.writeln("super(native);");
-                });
-                sf.writeln("override WlProxy makeProxy(wl_proxy* proxy) immutable");
-                sf.bracedBlock!({
-                    if (iface.name == "wl_display")
-                    {
-                        sf.writeln("return new WlDisplay(cast(wl_display*)proxy);");
-                    }
-                    else
-                        sf.writeln("return new %s(proxy);", iface.dName);
-                });
-            });
-        }
-        writeNativeIfaces(sf);
-    }
-
-    void writePrivServerIfaces(SourceFile sf)
-    {
-        foreach(iface; ifaces)
-        {
-            sf.writeln("immutable WlServerInterface %sIface;", camelName(iface.name));
-        }
-        foreach (iface; ifaces)
-        {
-            sf.writeln();
-            sf.writeln("immutable final class %sIface : WlServerInterface",
-                    titleCamelName(iface.name));
-            sf.bracedBlock!({
-                sf.writeln("this(immutable wl_interface* native)");
-                sf.bracedBlock!({
-                    sf.writeln("super(native);");
-                });
-                sf.writeln("override WlResource makeResource(wl_resource* resource) immutable");
-                sf.bracedBlock!({
-                    if (iface.name == "wl_display")
-                        sf.writeln("assert(false, \"Display cannot have any resource!\");");
-                    else
-                        sf.writeln("return new %s.Resource(resource);", iface.dName);
-                });
-                if (iface.isGlobal)
-                {
-                    sf.writeln("override WlGlobal makeGlobal(wl_global* global) immutable");
-                    sf.bracedBlock!({
-                        if (iface.name == "wl_display")
-                            sf.writeln("assert(false, \"Display cannot have any global!\");");
-                        else
-                            sf.writeln("return new %s.Global(global);", iface.dName);
-                    });
-                }
-            });
-        }
-        writeNativeIfaces(sf);
     }
 
     void writeNativeIfaces(SourceFile sf)
@@ -1408,6 +1327,161 @@ class Protocol
             }
         });
         sf.writeln("];");
+    }
+}
+
+class ClientProtocol : Protocol
+{
+    this(Element el)
+    {
+        super(el);
+    }
+
+    override void writeCode(SourceFile sf, in Options opt)
+    {
+        writeHeader(sf, opt);
+        if (name == "wayland") sf.writeln("import wayland.client.core;");
+        else sf.writeln("import wayland.client;");
+        sf.writeln("import wayland.native.client;");
+        sf.writeln("import wayland.native.util;");
+        sf.writeln("import wayland.util;");
+        sf.writeln();
+        sf.writeln("import std.exception : enforce;");
+        sf.writeln("import std.string : fromStringz, toStringz;");
+        sf.writeln();
+
+        foreach(iface; ifaces)
+        {
+            iface.writeClientCode(sf);
+            sf.writeln();
+        }
+
+        // writing private code
+        sf.writeln("private:");
+        sf.writeln();
+
+        writePrivIfaces(sf);
+        sf.writeln();
+
+        sf.writeln("extern(C) nothrow");
+        sf.bracedBlock!({
+            foreach(i, iface; ifaces)
+            {
+                if (i != 0) sf.writeln();
+                iface.writePrivClientListener(sf);
+                iface.writePrivClientListenerStubs(sf);
+            }
+        });
+    }
+
+    override void writePrivIfaces(SourceFile sf)
+    {
+        foreach(iface; ifaces)
+        {
+            sf.writeln("immutable WlProxyInterface %sIface;", camelName(iface.name));
+        }
+        foreach (iface; ifaces)
+        {
+            sf.writeln();
+            sf.writeln("immutable final class %sIface : WlProxyInterface",
+                    titleCamelName(iface.name));
+            sf.bracedBlock!({
+                sf.writeln("this(immutable wl_interface* native)");
+                sf.bracedBlock!({
+                    sf.writeln("super(native);");
+                });
+                sf.writeln("override WlProxy makeProxy(wl_proxy* proxy) immutable");
+                sf.bracedBlock!({
+                    if (iface.name == "wl_display")
+                    {
+                        sf.writeln("return new WlDisplay(cast(wl_display*)proxy);");
+                    }
+                    else
+                        sf.writeln("return new %s(proxy);", iface.dName);
+                });
+            });
+        }
+        writeNativeIfaces(sf);
+    }
+}
+
+class ServerProtocol : Protocol
+{
+    this(Element el)
+    {
+        super(el);
+    }
+
+    override void writeCode(SourceFile sf, in Options opt)
+    {
+        writeHeader(sf, opt);
+        if (name == "wayland") sf.writeln("import wayland.server.core;");
+        else sf.writeln("import wayland.server;");
+        sf.writeln("import wayland.native.server;");
+        sf.writeln("import wayland.native.util;");
+        sf.writeln("import wayland.util;");
+        sf.writeln();
+
+        foreach(iface; ifaces)
+        {
+            iface.writeServerCode(sf);
+            sf.writeln();
+        }
+
+        // writing private code
+        sf.writeln("private:");
+        sf.writeln();
+
+        writePrivIfaces(sf);
+        sf.writeln();
+
+        sf.writeln("extern(C) nothrow");
+        sf.bracedBlock!({
+            foreach(i, iface; ifaces)
+            {
+                if (i != 0) sf.writeln();
+                //iface.writePrivServerListener(sf);
+                //iface.writePrivServerListenerStubs(sf);
+            }
+        });
+    }
+
+    override void writePrivIfaces(SourceFile sf)
+    {
+        foreach(iface; ifaces)
+        {
+            sf.writeln("immutable WlServerInterface %sIface;", camelName(iface.name));
+        }
+        foreach (iface; ifaces)
+        {
+            sf.writeln();
+            sf.writeln("immutable final class %sIface : WlServerInterface",
+                    titleCamelName(iface.name));
+            sf.bracedBlock!({
+                sf.writeln("this(immutable wl_interface* native)");
+                sf.bracedBlock!({
+                    sf.writeln("super(native);");
+                });
+                sf.writeln("override WlResource makeResource(wl_resource* resource) immutable");
+                sf.bracedBlock!({
+                    if (iface.name == "wl_display")
+                        sf.writeln("assert(false, \"Display cannot have any resource!\");");
+                    else
+                        sf.writeln("return new %s.Resource(resource);", iface.dName);
+                });
+                if (iface.isGlobal)
+                {
+                    sf.writeln("override WlGlobal makeGlobal(wl_global* global) immutable");
+                    sf.bracedBlock!({
+                        if (iface.name == "wl_display")
+                            sf.writeln("assert(false, \"Display cannot have any global!\");");
+                        else
+                            sf.writeln("return new %s.Global(global);", iface.dName);
+                    });
+                }
+            });
+        }
+        writeNativeIfaces(sf);
     }
 }
 
