@@ -4,11 +4,29 @@ module wayland.server.core;
 import wayland.server.protocol;
 import wayland.server.eventloop;
 import wayland.native.server;
+import wayland.native.util;
 import wayland.util;
 
 import std.string;
 import std.exception : enforce;
 import core.sys.posix.sys.types;
+
+
+
+immutable abstract class WlServerInterface : WlInterface
+{
+    this(immutable wl_interface* native)
+    {
+        super(native);
+    }
+
+    abstract WlResource makeResource(wl_resource* resource) immutable;
+
+    WlGlobal makeGlobal(wl_global* global) immutable
+    {
+        assert(false, `Interface "` ~ name ~ `" is not global.`);
+    }
+}
 
 
 class WlDisplayBase : Native!wl_display

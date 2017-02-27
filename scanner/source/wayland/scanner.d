@@ -1007,7 +1007,7 @@ class Interface
 
     void writeServerGlobalCode(SourceFile sf)
     {
-        sf.writeln("class Global : WlGlobal");
+        sf.writeln("static class Global : WlGlobal");
         sf.bracedBlock!({
             sf.writeln("this(wl_global* native)");
             sf.bracedBlock!({
@@ -1018,7 +1018,7 @@ class Interface
 
     void writeServerResourceCode(SourceFile sf)
     {
-        sf.writeln("class Resource : WlResource");
+        sf.writeln("static class Resource : WlResource");
         sf.bracedBlock!({
             sf.writeln("this(wl_resource* native)");
             sf.bracedBlock!({
@@ -1029,6 +1029,7 @@ class Interface
 
     void writeServerCode(SourceFile sf)
     {
+        description.writeCode(sf);
         immutable heritage = name == "wl_display" ? " : WlDisplayBase" : "";
         sf.writeln("class %s%s", dName, heritage);
         sf.bracedBlock!({
@@ -1242,7 +1243,7 @@ class Protocol
         sf.writeln("private:");
         sf.writeln();
 
-        //writePrivServerIfaces(sf);
+        writePrivServerIfaces(sf);
         sf.writeln();
 
         sf.writeln("extern(C) nothrow");
@@ -1283,6 +1284,49 @@ class Protocol
                 });
             });
         }
+        writeNativeIfaces(sf);
+    }
+
+    void writePrivServerIfaces(SourceFile sf)
+    {
+        foreach(iface; ifaces)
+        {
+            sf.writeln("immutable WlServerInterface %sIface;", camelName(iface.name));
+        }
+        foreach (iface; ifaces)
+        {
+            sf.writeln();
+            sf.writeln("immutable final class %sIface : WlServerInterface",
+                    titleCamelName(iface.name));
+            sf.bracedBlock!({
+                sf.writeln("this(immutable wl_interface* native)");
+                sf.bracedBlock!({
+                    sf.writeln("super(native);");
+                });
+                sf.writeln("override WlResource makeResource(wl_resource* resource) immutable");
+                sf.bracedBlock!({
+                    if (iface.name == "wl_display")
+                        sf.writeln("assert(false, \"Display cannot have any resource!\");");
+                    else
+                        sf.writeln("return new %s.Resource(resource);", iface.dName);
+                });
+                if (iface.isGlobal)
+                {
+                    sf.writeln("override WlGlobal makeGlobal(wl_global* global) immutable");
+                    sf.bracedBlock!({
+                        if (iface.name == "wl_display")
+                            sf.writeln("assert(false, \"Display cannot have any global!\");");
+                        else
+                            sf.writeln("return new %s.Global(global);", iface.dName);
+                    });
+                }
+            });
+        }
+        writeNativeIfaces(sf);
+    }
+
+    void writeNativeIfaces(SourceFile sf)
+    {
         sf.writeln();
         sf.writeln("immutable wl_interface[] wl_ifaces;");
         sf.writeln();
