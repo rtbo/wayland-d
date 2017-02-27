@@ -17,13 +17,19 @@
 		{
 			"name": "static",
 			"versions": ["WlStatic"],
-			"libs": ["wayland-cursor"]
+			"libs": ["wayland-cursor"],
+			"subConfigurations": {
+				"wayland-d:client": "static"
+			}
 		},
 		{
 			"name": "dynamic",
 			"versions": ["WlDynamic"],
 			"dependencies": {
 				"derelict-util": "~>2.0.0"
+			},
+			"subConfigurations": {
+				"wayland-d:client": "dynamic"
 			}
 		}
 	]
