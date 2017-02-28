@@ -113,7 +113,6 @@ interface Factory
     Protocol makeProtocol(Element el);
     Interface makeInterface(Element el, string protocolName);
     Message makeMessage(Element el, string ifaceName);
-    Arg makeArg(Element el);
 }
 
 Factory fact;
@@ -126,15 +125,11 @@ class ClientFactory : Factory
     }
     override Interface makeInterface(Element el, string protocolName)
     {
-        return new Interface(el, protocolName);
+        return new ClientInterface(el, protocolName);
     }
     override Message makeMessage(Element el, string ifaceName)
     {
-        return new Message(el, ifaceName);
-    }
-    override Arg makeArg(Element el)
-    {
-        return new Arg(el);
+        return new ClientMessage(el, ifaceName);
     }
 }
 
@@ -146,15 +141,11 @@ class ServerFactory : Factory
     }
     override Interface makeInterface(Element el, string protocolName)
     {
-        return new Interface(el, protocolName);
+        return new ServerInterface(el, protocolName);
     }
     override Message makeMessage(Element el, string ifaceName)
     {
-        return new Message(el, ifaceName);
-    }
-    override Arg makeArg(Element el)
-    {
-        return new Arg(el);
+        return new ServerMessage(el, ifaceName);
     }
 }
 
@@ -523,7 +514,7 @@ class Message
         description = new Description(el);
         foreach (argEl; el.getElementsByTagName("arg"))
         {
-            args ~= fact.makeArg(argEl);
+            args ~= new Arg(argEl);
         }
 
         argIfaceTypes = args
@@ -882,6 +873,23 @@ class Message
 }
 
 
+class ClientMessage : Message
+{
+    this (Element el, string ifaceName)
+    {
+        super(el, ifaceName);
+    }
+}
+
+class ServerMessage : Message
+{
+    this (Element el, string ifaceName)
+    {
+        super(el, ifaceName);
+    }
+}
+
+
 class Interface
 {
     string protocol;
@@ -917,6 +925,10 @@ class Interface
         }
     }
 
+    abstract void writeCode(SourceFile sf);
+    abstract void writePrivListener(SourceFile sf);
+    abstract void writePrivListenerStubs(SourceFile sf);
+
     @property string dName() const
     {
         return ifaceDName(name);
@@ -938,60 +950,49 @@ class Interface
         return max;
     }
 
-    void writeConstants(SourceFile sf)
+    void writePrivIfaceMsgs(SourceFile sf, Message[] msgs, in string suffix)
     {
+        if (msgs.empty) return;
+
+        sf.writeln("auto %s_%s = [", name, suffix);
+        sf.indentedBlock!({
+            foreach(msg; msgs)
+            {
+                msg.writePrivIfaceMsg(sf);
+            }
+        });
+        sf.writeln("];");
+    }
+
+    void writePrivIfacePopulate(SourceFile sf)
+    {
+        writePrivIfaceMsgs(sf, requests, "requests");
+        writePrivIfaceMsgs(sf, events, "events");
+        immutable memb = format("ifaces[%s]", indexSymbol(name));
+        sf.writeln(`%s.name = "%s";`, memb, name);
+        sf.writeln("%s.version_ = %s;", memb, ver);
+
         if (requests.length)
         {
-            sf.writeln();
-            foreach(i, msg; requests)
-            {
-                sf.writeln("/// Op-code of %s.%s.", dName, msg.dReqName);
-                sf.writeln("enum %s = %d;", msg.reqOpCode, i);
-            }
-            sf.writeln();
-            foreach(msg; requests)
-            {
-                sf.writeln(
-                    "/// Version of %s protocol introducing %s.%s.",
-                    protocol, dName, msg.dReqName
-                );
-                sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
-            }
+            sf.writeln("%s.method_count = %d;", memb, requests.length);
+            sf.writeln("%s.methods = %s_requests.ptr;", memb, name);
         }
         if (events.length)
         {
-            sf.writeln();
-            foreach(msg; events)
-            {
-                sf.writeln(
-                    "/// %s protocol version introducing %s.%s.",
-                    protocol, dName, msg.dEvName
-                );
-                sf.writeln("enum %sSinceVersion = %d;", msg.dEvName, msg.since);
-            }
+            sf.writeln("%s.event_count = %d;", memb, events.length);
+            sf.writeln("%s.events = %s_events.ptr;", memb, name);
         }
     }
+}
 
-    void writeClientDtorCode(SourceFile sf)
+class ClientInterface : Interface
+{
+    this (Element el, string protocol)
     {
-        immutable hasDtor = requests.canFind!(rq => rq.isDtor);
-        immutable hasDestroy = requests.canFind!(rq => rq.name == "destroy");
-
-        enforce(!hasDestroy || hasDtor);
-
-        if (!hasDestroy && name != "wl_display")
-        {
-            sf.writeln();
-            sf.writeln("/// Destroy this %s object.", dName);
-            sf.writeln("void destroy()");
-            sf.bracedBlock!({
-                sf.writeln("wl_proxy_destroy(proxy);");
-                sf.writeln("super.destroyNotify();");
-            });
-        }
+        super(el, protocol);
     }
 
-    void writeClientCode(SourceFile sf)
+    override void writeCode(SourceFile sf)
     {
         description.writeCode(sf);
 
@@ -1036,7 +1037,7 @@ class Interface
                 sf.writeln();
                 en.writeCode(sf);
             }
-            writeClientDtorCode(sf);
+            writeDtorCode(sf);
             foreach (msg; requests)
             {
                 sf.writeln();
@@ -1059,54 +1060,60 @@ class Interface
         });
     }
 
-    void writeServerGlobalCode(SourceFile sf)
+    void writeConstants(SourceFile sf)
     {
-        sf.writeln("static class Global : WlGlobal");
-        sf.bracedBlock!({
-            sf.writeln("this(wl_global* native)");
-            sf.bracedBlock!({
-                sf.writeln("super(native);");
-            });
-        });
-    }
-
-    void writeServerResourceCode(SourceFile sf)
-    {
-        sf.writeln("static class Resource : WlResource");
-        sf.bracedBlock!({
-            sf.writeln("this(wl_resource* native)");
-            sf.bracedBlock!({
-                sf.writeln("super(native);");
-            });
-        });
-    }
-
-    void writeServerCode(SourceFile sf)
-    {
-        description.writeCode(sf);
-        immutable heritage = name == "wl_display" ? " : WlDisplayBase" : "";
-        sf.writeln("class %s%s", dName, heritage);
-        sf.bracedBlock!({
-            if (name == "wl_display")
+        if (requests.length)
+        {
+            sf.writeln();
+            foreach(i, msg; requests)
             {
-                sf.writeln("this(wl_display* native)");
-                sf.bracedBlock!({
-                    sf.writeln("super(native);");
-                });
+                sf.writeln("/// Op-code of %s.%s.", dName, msg.dReqName);
+                sf.writeln("enum %s = %d;", msg.reqOpCode, i);
             }
-            else
+            sf.writeln();
+            foreach(msg; requests)
             {
-                if (isGlobal)
-                {
-                    writeServerGlobalCode(sf);
-                    sf.writeln();
-                }
-                writeServerResourceCode(sf);
+                sf.writeln(
+                    "/// Version of %s protocol introducing %s.%s.",
+                    protocol, dName, msg.dReqName
+                );
+                sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
             }
-        });
+        }
+        if (events.length)
+        {
+            sf.writeln();
+            foreach(msg; events)
+            {
+                sf.writeln(
+                    "/// %s protocol version introducing %s.%s.",
+                    protocol, dName, msg.dEvName
+                );
+                sf.writeln("enum %sSinceVersion = %d;", msg.dEvName, msg.since);
+            }
+        }
     }
 
-    void writePrivClientListener(SourceFile sf)
+    void writeDtorCode(SourceFile sf)
+    {
+        immutable hasDtor = requests.canFind!(rq => rq.isDtor);
+        immutable hasDestroy = requests.canFind!(rq => rq.name == "destroy");
+
+        enforce(!hasDestroy || hasDtor);
+
+        if (!hasDestroy && name != "wl_display")
+        {
+            sf.writeln();
+            sf.writeln("/// Destroy this %s object.", dName);
+            sf.writeln("void destroy()");
+            sf.bracedBlock!({
+                sf.writeln("wl_proxy_destroy(proxy);");
+                sf.writeln("super.destroyNotify();");
+            });
+        }
+    }
+
+    override void writePrivListener(SourceFile sf)
     {
         if (!writeEvents) return;
 
@@ -1129,7 +1136,7 @@ class Interface
         }
     }
 
-    void writePrivClientListenerStubs(SourceFile sf)
+    override void writePrivListenerStubs(SourceFile sf)
     {
         if (!writeEvents) return;
 
@@ -1139,39 +1146,70 @@ class Interface
             ev.writePrivListenerStub(sf);
         }
     }
+}
 
-    void writePrivIfaceMsgs(SourceFile sf, Message[] msgs, in string suffix)
+class ServerInterface : Interface
+{
+    this (Element el, string protocol)
     {
-        if (msgs.empty) return;
-
-        sf.writeln("auto %s_%s = [", name, suffix);
-        sf.indentedBlock!({
-            foreach(msg; msgs)
-            {
-                msg.writePrivIfaceMsg(sf);
-            }
-        });
-        sf.writeln("];");
+        super(el, protocol);
     }
 
-    void writePrivIfacePopulate(SourceFile sf)
+    override void writeCode(SourceFile sf)
     {
-        writePrivIfaceMsgs(sf, requests, "requests");
-        writePrivIfaceMsgs(sf, events, "events");
-        immutable memb = format("ifaces[%s]", indexSymbol(name));
-        sf.writeln(`%s.name = "%s";`, memb, name);
-        sf.writeln("%s.version_ = %s;", memb, ver);
+        description.writeCode(sf);
+        immutable heritage = name == "wl_display" ? " : WlDisplayBase" : "";
+        sf.writeln("class %s%s", dName, heritage);
+        sf.bracedBlock!({
+            if (name == "wl_display")
+            {
+                sf.writeln("this(wl_display* native)");
+                sf.bracedBlock!({
+                    sf.writeln("super(native);");
+                });
+            }
+            else
+            {
+                if (isGlobal)
+                {
+                    writeGlobalCode(sf);
+                    sf.writeln();
+                }
+                writeResourceCode(sf);
+            }
+        });
+    }
 
-        if (requests.length)
-        {
-            sf.writeln("%s.method_count = %d;", memb, requests.length);
-            sf.writeln("%s.methods = %s_requests.ptr;", memb, name);
-        }
-        if (events.length)
-        {
-            sf.writeln("%s.event_count = %d;", memb, events.length);
-            sf.writeln("%s.events = %s_events.ptr;", memb, name);
-        }
+    void writeGlobalCode(SourceFile sf)
+    {
+        sf.writeln("static class Global : WlGlobal");
+        sf.bracedBlock!({
+            sf.writeln("this(wl_global* native)");
+            sf.bracedBlock!({
+                sf.writeln("super(native);");
+            });
+        });
+    }
+
+    void writeResourceCode(SourceFile sf)
+    {
+        sf.writeln("static class Resource : WlResource");
+        sf.bracedBlock!({
+            sf.writeln("this(wl_resource* native)");
+            sf.bracedBlock!({
+                sf.writeln("super(native);");
+            });
+        });
+    }
+
+    override void writePrivListener(SourceFile sf)
+    {
+
+    }
+
+    override void writePrivListenerStubs(SourceFile sf)
+    {
+
     }
 }
 
@@ -1352,7 +1390,7 @@ class ClientProtocol : Protocol
 
         foreach(iface; ifaces)
         {
-            iface.writeClientCode(sf);
+            iface.writeCode(sf);
             sf.writeln();
         }
 
@@ -1368,8 +1406,8 @@ class ClientProtocol : Protocol
             foreach(i, iface; ifaces)
             {
                 if (i != 0) sf.writeln();
-                iface.writePrivClientListener(sf);
-                iface.writePrivClientListenerStubs(sf);
+                iface.writePrivListener(sf);
+                iface.writePrivListenerStubs(sf);
             }
         });
     }
@@ -1424,7 +1462,7 @@ class ServerProtocol : Protocol
 
         foreach(iface; ifaces)
         {
-            iface.writeServerCode(sf);
+            iface.writeCode(sf);
             sf.writeln();
         }
 
