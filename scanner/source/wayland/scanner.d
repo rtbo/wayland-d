@@ -534,6 +534,7 @@ class Message
         }
     }
 
+
     @property Tuple!(Arg, string, ReqType) clientReqReturn()
     {
         Arg ret;
@@ -695,6 +696,115 @@ class Message
         });
     }
 
+    void writePrivIfaceMsg(SourceFile sf)
+    {
+        sf.writeln(
+            "wl_message(\"%s\", \"%s\", &msgTypes[%d]),",
+            name, signature, ifaceTypeIndex
+        );
+    }
+
+    void writePrivListenerSig(SourceFile sf)
+    {
+        enum fstLine = "void function(";
+        immutable lstEol = format(") %s;", cEvName);
+
+        immutable indent = ' '.repeat.take(fstLine.length).array();
+        sf.writeln("%svoid* data,", fstLine);
+        auto eol = args.empty ? lstEol : ",";
+        sf.writeln("%swl_proxy* proxy%s", indent, eol);
+        foreach(i, arg; args)
+        {
+            eol = i == args.length-1 ? lstEol : ",";
+            sf.writeln("%s%s %s%s", indent, arg.evCType, arg.paramName, eol);
+        }
+    }
+
+    void writePrivListenerStub(SourceFile sf)
+    {
+        immutable fstLine = format("void wl_d_on_%s_%s(", ifaceName, name);
+        immutable indent = ' '.repeat.take(fstLine.length).array();
+        sf.writeln("%svoid* data,", fstLine);
+        auto eol = args.empty ? ")" : ",";
+        sf.writeln("%swl_proxy* proxy%s", indent, eol);
+        foreach(i, arg; args)
+        {
+            eol = i == args.length-1 ? ")" : ",";
+            sf.writeln("%s%s %s%s", indent, arg.evCType, arg.paramName, eol);
+        }
+        sf.bracedBlock!({
+            sf.writeln("nothrowFnWrapper!({");
+            sf.indentedBlock!({
+                sf.writeln("auto _p = WlProxy.get(proxy);");
+                sf.writeln("assert(_p, \"listener stub without proxy\");");
+                sf.writeln("auto _i = cast(%s)_p;", ifaceDName(ifaceName));
+                sf.writeln("assert(_i, \"listener stub proxy is not %s\");", ifaceDName(ifaceName));
+                sf.writeln("if (_i._%s)", dEvName);
+                sf.bracedBlock!({
+                    string sep = args.length ? ", " : "";
+                    sf.write("_i._%s(_i%s", dEvName, sep);
+                    foreach (i, arg; args)
+                    {
+                        sep = (i == args.length-1) ? "" : ", ";
+                        sf.write("%s%s", arg.dCastExpr(ifaceName), sep);
+                    }
+                    sf.writeln(");");
+                });
+
+            });
+            sf.writeln("});");
+        });
+    }
+}
+
+
+class ClientMessage : Message
+{
+    this (Element el, string ifaceName)
+    {
+        super(el, ifaceName);
+    }
+
+
+    void writeRequestCode(SourceFile sf)
+    {
+        final switch(reqType)
+        {
+        case ReqType.void_:
+            writeVoidReqDefinitionCode(sf);
+            break;
+        case ReqType.newObj:
+            writeNewObjReqDefinitionCode(sf);
+            break;
+        case ReqType.dynObj:
+            writeDynObjReqDefinitionCode(sf);
+            break;
+        }
+    }
+
+    void writeEventDgAlias(SourceFile sf)
+    {
+        sf.writeln("/// Event delegate signature of %s.%s.", ifaceDName(ifaceName), dEvName);
+        immutable fstLine = format("alias %s = void delegate (", dEvDgType);
+        immutable indent = ' '.repeat(fstLine.length).array();
+        string eol = args.length ? "," : ");";
+        sf.writeln("%s%s %s%s", fstLine, ifaceDName(ifaceName), camelName(ifaceName), eol);
+        foreach(i, arg; args)
+        {
+            eol = i == args.length-1 ? ");" : ",";
+            sf.writeln("%s%s %s%s", indent, arg.dType, arg.paramName, eol);
+        }
+    }
+
+    void writeEventDgAccessor(SourceFile sf)
+    {
+        description.writeCode(sf);
+        sf.writeln("@property void %s(%s dg)", dEvName, dEvDgType);
+        sf.bracedBlock!({
+            sf.writeln("_%s = dg;", dEvName);
+        });
+    }
+
     void writeVoidReqDefinitionCode(SourceFile sf)
     {
         string[] prepArgs;
@@ -770,114 +880,6 @@ class Message
                 "if (_p) return _p;",
                 "return iface.makeProxy(_pp);"  ]
         );
-    }
-
-    void writeClientRequestCode(SourceFile sf)
-    {
-        final switch(reqType)
-        {
-        case ReqType.void_:
-            writeVoidReqDefinitionCode(sf);
-            break;
-        case ReqType.newObj:
-            writeNewObjReqDefinitionCode(sf);
-            break;
-        case ReqType.dynObj:
-            writeDynObjReqDefinitionCode(sf);
-            break;
-        }
-    }
-
-    void writeClientEventDgAlias(SourceFile sf)
-    {
-        sf.writeln("/// Event delegate signature of %s.%s.", ifaceDName(ifaceName), dEvName);
-        immutable fstLine = format("alias %s = void delegate (", dEvDgType);
-        immutable indent = ' '.repeat(fstLine.length).array();
-        string eol = args.length ? "," : ");";
-        sf.writeln("%s%s %s%s", fstLine, ifaceDName(ifaceName), camelName(ifaceName), eol);
-        foreach(i, arg; args)
-        {
-            eol = i == args.length-1 ? ");" : ",";
-            sf.writeln("%s%s %s%s", indent, arg.dType, arg.paramName, eol);
-        }
-    }
-
-    void writeClientEventDgAccessor(SourceFile sf)
-    {
-        description.writeCode(sf);
-        sf.writeln("@property void %s(%s dg)", dEvName, dEvDgType);
-        sf.bracedBlock!({
-            sf.writeln("_%s = dg;", dEvName);
-        });
-    }
-
-    void writePrivIfaceMsg(SourceFile sf)
-    {
-        sf.writeln(
-            "wl_message(\"%s\", \"%s\", &msgTypes[%d]),",
-            name, signature, ifaceTypeIndex
-        );
-    }
-
-    void writePrivListenerSig(SourceFile sf)
-    {
-        enum fstLine = "void function(";
-        immutable lstEol = format(") %s;", cEvName);
-
-        immutable indent = ' '.repeat.take(fstLine.length).array();
-        sf.writeln("%svoid* data,", fstLine);
-        auto eol = args.empty ? lstEol : ",";
-        sf.writeln("%swl_proxy* proxy%s", indent, eol);
-        foreach(i, arg; args)
-        {
-            eol = i == args.length-1 ? lstEol : ",";
-            sf.writeln("%s%s %s%s", indent, arg.evCType, arg.paramName, eol);
-        }
-    }
-
-    void writePrivListenerStub(SourceFile sf)
-    {
-        immutable fstLine = format("void wl_d_on_%s_%s(", ifaceName, name);
-        immutable indent = ' '.repeat.take(fstLine.length).array();
-        sf.writeln("%svoid* data,", fstLine);
-        auto eol = args.empty ? ")" : ",";
-        sf.writeln("%swl_proxy* proxy%s", indent, eol);
-        foreach(i, arg; args)
-        {
-            eol = i == args.length-1 ? ")" : ",";
-            sf.writeln("%s%s %s%s", indent, arg.evCType, arg.paramName, eol);
-        }
-        sf.bracedBlock!({
-            sf.writeln("nothrowFnWrapper!({");
-            sf.indentedBlock!({
-                sf.writeln("auto _p = WlProxy.get(proxy);");
-                sf.writeln("assert(_p, \"listener stub without proxy\");");
-                sf.writeln("auto _i = cast(%s)_p;", ifaceDName(ifaceName));
-                sf.writeln("assert(_i, \"listener stub proxy is not %s\");", ifaceDName(ifaceName));
-                sf.writeln("if (_i._%s)", dEvName);
-                sf.bracedBlock!({
-                    string sep = args.length ? ", " : "";
-                    sf.write("_i._%s(_i%s", dEvName, sep);
-                    foreach (i, arg; args)
-                    {
-                        sep = (i == args.length-1) ? "" : ", ";
-                        sf.write("%s%s", arg.dCastExpr(ifaceName), sep);
-                    }
-                    sf.writeln(");");
-                });
-
-            });
-            sf.writeln("});");
-        });
-    }
-}
-
-
-class ClientMessage : Message
-{
-    this (Element el, string ifaceName)
-    {
-        super(el, ifaceName);
     }
 }
 
@@ -992,6 +994,16 @@ class ClientInterface : Interface
         super(el, protocol);
     }
 
+    @property auto clRequests()
+    {
+        return requests.map!(r => cast(ClientMessage)r);
+    }
+
+    @property auto clEvents()
+    {
+        return events.map!(r => cast(ClientMessage)r);
+    }
+
     override void writeCode(SourceFile sf)
     {
         description.writeCode(sf);
@@ -1027,9 +1039,9 @@ class ClientInterface : Interface
             if (writeEvents)
             {
                 sf.writeln();
-                foreach(msg; events)
+                foreach(msg; clEvents)
                 {
-                    msg.writeClientEventDgAlias(sf);
+                    msg.writeEventDgAlias(sf);
                 }
             }
             foreach (en; enums)
@@ -1038,17 +1050,17 @@ class ClientInterface : Interface
                 en.writeCode(sf);
             }
             writeDtorCode(sf);
-            foreach (msg; requests)
+            foreach (msg; clRequests)
             {
                 sf.writeln();
-                msg.writeClientRequestCode(sf);
+                msg.writeRequestCode(sf);
             }
             if (writeEvents)
             {
-                foreach(msg; events)
+                foreach(msg; clEvents)
                 {
                     sf.writeln();
-                    msg.writeClientEventDgAccessor(sf);
+                    msg.writeEventDgAccessor(sf);
                 }
 
                 sf.writeln();
