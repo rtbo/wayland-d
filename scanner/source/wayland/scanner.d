@@ -870,44 +870,44 @@ class ClientMessage : Message
 
     void writeVoidReqDefinitionCode(SourceFile sf)
     {
-        string[] prepArgs;
-        string[] prepExpr = [
+        string[] rtArgs;
+        string[] exprs = [
             "proxy", opCodeName
         ];
         foreach(arg; args)
         {
-            prepArgs ~= (arg.dType ~ " " ~ arg.paramName);
-            prepExpr ~= arg.cCastExpr;
+            rtArgs ~= (arg.dType ~ " " ~ arg.paramName);
+            exprs ~= arg.cCastExpr;
         }
         string[] postStmt = isDtor ? ["super.destroyNotify();"] : [];
 
         description.writeCode(sf);
-        writeSig(sf, "void", dMethodName, prepArgs);
-        writeBody(sf, [], "wl_proxy_marshal", prepExpr, postStmt);
+        writeSig(sf, "void", dMethodName, rtArgs);
+        writeBody(sf, [], "wl_proxy_marshal", exprs, postStmt);
     }
 
     void writeNewObjReqDefinitionCode(SourceFile sf)
     {
-        string[] prepArgs;
-        string[] prepExpr = [
+        string[] rtArgs;
+        string[] exprs = [
             "proxy", opCodeName, format("%s.iface.native", ifaceDName(reqRet.iface))
         ];
         foreach(arg; args)
         {
             if (arg is reqRet)
             {
-                prepExpr ~= "null";
+                exprs ~= "null";
             }
             else
             {
-                prepArgs ~= format("%s %s", arg.dType, arg.paramName);
-                prepExpr ~= arg.cCastExpr;
+                rtArgs ~= format("%s %s", arg.dType, arg.paramName);
+                exprs ~= arg.cCastExpr;
             }
         }
         description.writeCode(sf);
-        writeSig(sf, reqRetStr, dMethodName, prepArgs);
+        writeSig(sf, reqRetStr, dMethodName, rtArgs);
         writeBody(sf, [],
-            "auto _pp = wl_proxy_marshal_constructor", prepExpr,
+            "auto _pp = wl_proxy_marshal_constructor", exprs,
             [   "if (!_pp) return null;",
                 "auto _p = WlProxy.get(_pp);",
                 format("if (_p) return cast(%s)_p;", reqRetStr),
@@ -917,27 +917,27 @@ class ClientMessage : Message
 
     void writeDynObjReqDefinitionCode(SourceFile sf)
     {
-        string[] prepArgs;
-        string[] prepExpr = [
+        string[] rtArgs;
+        string[] exprs = [
             "proxy", opCodeName, "iface.native", "ver"
         ];
         foreach(arg; args)
         {
             if (arg is reqRet)
             {
-                prepArgs ~= [ "immutable(WlProxyInterface) iface", "uint ver" ];
-                prepExpr ~= [ "iface.native.name", "ver" ];
+                rtArgs ~= [ "immutable(WlProxyInterface) iface", "uint ver" ];
+                exprs ~= [ "iface.native.name", "ver" ];
             }
             else
             {
-                prepArgs ~= format("%s %s", arg.dType, arg.paramName);
-                prepExpr ~= arg.cCastExpr;
+                rtArgs ~= format("%s %s", arg.dType, arg.paramName);
+                exprs ~= arg.cCastExpr;
             }
         }
         description.writeCode(sf);
-        writeSig(sf, reqRetStr, dMethodName, prepArgs);
+        writeSig(sf, reqRetStr, dMethodName, rtArgs);
         writeBody(sf, [],
-            "auto _pp = wl_proxy_marshal_constructor_versioned", prepExpr,
+            "auto _pp = wl_proxy_marshal_constructor_versioned", exprs,
             [   "if (!_pp) return null;",
                 "auto _p = WlProxy.get(_pp);",
                 "if (_p) return _p;",
