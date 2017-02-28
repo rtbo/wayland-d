@@ -113,6 +113,7 @@ interface Factory
     Protocol makeProtocol(Element el);
     Interface makeInterface(Element el, string protocolName);
     Message makeMessage(Element el, string ifaceName);
+    Arg makeArg(Element el);
 }
 
 Factory fact;
@@ -131,6 +132,10 @@ class ClientFactory : Factory
     {
         return new ClientMessage(el, ifaceName);
     }
+    override Arg makeArg(Element el)
+    {
+        return new ClientArg(el);
+    }
 }
 
 class ServerFactory : Factory
@@ -146,6 +151,10 @@ class ServerFactory : Factory
     override Message makeMessage(Element el, string ifaceName)
     {
         return new ServerMessage(el, ifaceName);
+    }
+    override Arg makeArg(Element el)
+    {
+        return new ServerArg(el);
     }
 }
 
@@ -287,7 +296,7 @@ class Enum
 
 
 
-class Arg
+abstract class Arg
 {
     string name;
     string summary;
@@ -338,6 +347,132 @@ class Arg
         enforce(!nullable || isNullable(type));
     }
 
+    @property string dType() const
+    {
+        final switch(type) {
+            case ArgType.Int:
+                return "int";
+            case ArgType.UInt:
+                if (enumName.empty) return "uint";
+                else return qualfiedTypeName(enumName);
+            case ArgType.Fixed:
+                return "WlFixed";
+            case ArgType.String:
+                return "string";
+            case ArgType.NewId:
+                return "uint";
+            case ArgType.Array:
+                return "wl_array*"; // ?? let's check this later
+            case ArgType.Fd:
+                return "int";
+            case ArgType.Object:
+                assert(false, "must be implemented in subclasses");
+        }
+    }
+
+
+    @property string paramName() const
+    {
+        return validDName(camelName(name));
+    }
+
+    @property string cCastExpr() const
+    {
+        final switch(type) {
+            case ArgType.Int:
+                return paramName;
+            case ArgType.UInt:
+                return paramName;
+            case ArgType.Fixed:
+                return format("%s.raw", paramName);
+            case ArgType.String:
+                return format("toStringz(%s)", paramName);
+            case ArgType.NewId:
+                return paramName;
+            case ArgType.Array:
+                return paramName;
+            case ArgType.Fd:
+                return paramName;
+            case ArgType.Object:
+                assert(false, "must be implemented in subclasses");
+        }
+    }
+
+    string dCastExpr(string parentIface) const
+    {
+        final switch(type) {
+            case ArgType.Int:
+                return paramName;
+            case ArgType.UInt:
+                if (enumName.empty) return paramName;
+                else
+                {
+                    immutable en = (parentIface.empty || enumName.canFind('.')) ?
+                            enumName : format("%s.%s", parentIface, enumName);
+                    return format("cast(%s)%s", qualfiedTypeName(en), paramName);
+                }
+            case ArgType.Fixed:
+                return format("WlFixed(%s)", paramName);
+            case ArgType.String:
+                return format("fromStringz(%s).idup", paramName);
+            case ArgType.Object:
+                auto expr = format("WlProxy.get(%s)", paramName);
+                if (iface)
+                    return format("cast(%s)%s", ifaceDName(iface), expr);
+                else
+                    return expr;
+            case ArgType.NewId:
+                return paramName;
+            case ArgType.Array:
+                return paramName;
+            case ArgType.Fd:
+                return paramName;
+        }
+    }
+}
+
+class ClientArg : Arg
+{
+    this(Element el)
+    {
+        super(el);
+    }
+
+    override @property string dType() const
+    {
+        final switch(type) {
+            case ArgType.Int:
+            case ArgType.UInt:
+            case ArgType.Fixed:
+            case ArgType.String:
+            case ArgType.NewId:
+            case ArgType.Array:
+            case ArgType.Fd:
+                return Arg.dType;
+            case ArgType.Object:
+                if (iface.length)
+                    return ifaceDName(iface);
+                else
+                    return "WlProxy";
+        }
+    }
+
+    override @property string cCastExpr() const
+    {
+        final switch(type) {
+            case ArgType.Int:
+            case ArgType.UInt:
+            case ArgType.Fixed:
+            case ArgType.String:
+            case ArgType.NewId:
+            case ArgType.Array:
+            case ArgType.Fd:
+                return Arg.cCastExpr;
+            case ArgType.Object:
+                return format("%s.proxy", paramName);
+        }
+    }
+
     @property string reqCType() const
     {
         final switch(type) {
@@ -382,96 +517,54 @@ class Arg
                 return "int";
         }
     }
+}
 
-    @property string dType() const
+class ServerArg : Arg
+{
+    this(Element el)
+    {
+        super(el);
+    }
+
+
+    override @property string dType() const
     {
         final switch(type) {
             case ArgType.Int:
-                return "int";
             case ArgType.UInt:
-                if (enumName.empty) return "uint";
-                else return qualfiedTypeName(enumName);
             case ArgType.Fixed:
-                return "WlFixed";
             case ArgType.String:
-                return "string";
+            case ArgType.NewId:
+            case ArgType.Array:
+            case ArgType.Fd:
+                return Arg.dType;
             case ArgType.Object:
                 if (iface.length)
-                    return ifaceDName(iface);
+                    return ifaceDName(iface) ~ ".Resource";
                 else
-                    return "WlProxy";
-            case ArgType.NewId:
-                return "uint";
-            case ArgType.Array:
-                return "wl_array*"; // ?? let's check this later
-            case ArgType.Fd:
-                return "int";
+                    return "WlResource";
         }
     }
 
-
-    @property string paramName() const
-    {
-        return validDName(camelName(name));
-    }
-
-    @property string cCastExpr() const
+    override @property string cCastExpr() const
     {
         final switch(type) {
             case ArgType.Int:
-                return paramName;
             case ArgType.UInt:
-                return paramName;
             case ArgType.Fixed:
-                return format("%s.raw", paramName);
             case ArgType.String:
-                return format("toStringz(%s)", paramName);
-            case ArgType.Object:
-                return format("%s.proxy", paramName);
             case ArgType.NewId:
-                return paramName;
             case ArgType.Array:
-                return paramName;
             case ArgType.Fd:
-                return paramName;
-        }
-    }
-
-    string dCastExpr(string parentIface) const
-    {
-        final switch(type) {
-            case ArgType.Int:
-                return paramName;
-            case ArgType.UInt:
-                if (enumName.empty) return paramName;
-                else
-                {
-                    immutable en = (parentIface.empty || enumName.canFind('.')) ?
-                            enumName : format("%s.%s", parentIface, enumName);
-                    return format("cast(%s)%s", qualfiedTypeName(en), paramName);
-                }
-            case ArgType.Fixed:
-                return format("WlFixed(%s)", paramName);
-            case ArgType.String:
-                return format("fromStringz(%s).idup", paramName);
+                return Arg.cCastExpr;
             case ArgType.Object:
-                auto expr = format("WlProxy.get(%s)", paramName);
-                if (iface)
-                    return format("cast(%s)%s", ifaceDName(iface), expr);
-                else
-                    return expr;
-            case ArgType.NewId:
-                return paramName;
-            case ArgType.Array:
-                return paramName;
-            case ArgType.Fd:
-                return paramName;
+                return format("%s.native", paramName);
         }
     }
 }
 
 
-class Message
+abstract class Message
 {
     enum Type
     {
@@ -514,7 +607,7 @@ class Message
         description = new Description(el);
         foreach (argEl; el.getElementsByTagName("arg"))
         {
-            args ~= new Arg(argEl);
+            args ~= fact.makeArg(argEl);
         }
 
         argIfaceTypes = args
@@ -576,17 +669,22 @@ class Message
         return argIfaceTypes.empty ? args.length : 0;
     }
 
-    @property string dReqName()
+    @property string dMethodName()
     {
         return validDName(camelName(name));
     }
 
-    @property string reqOpCode()
+    @property string opCodeName()
     {
         return format("%sOpCode", camelName(name));
     }
 
-    @property string dEvName()
+    @property string onOpCodeName()
+    {
+        return format("on%sOpCode", titleCamelName(name));
+    }
+
+    @property string dHandlerName()
     {
         return "on" ~ titleCamelName(name);
     }
@@ -594,11 +692,6 @@ class Message
     @property string dEvDgType()
     {
         return "On" ~ titleCamelName(name) ~ "EventDg";
-    }
-
-    @property string evOpCode()
-    {
-        return format("on%sOpCode", titleCamelName(name));
     }
 
     @property string cEvName()
@@ -703,58 +796,6 @@ class Message
             name, signature, ifaceTypeIndex
         );
     }
-
-    void writePrivListenerSig(SourceFile sf)
-    {
-        enum fstLine = "void function(";
-        immutable lstEol = format(") %s;", cEvName);
-
-        immutable indent = ' '.repeat.take(fstLine.length).array();
-        sf.writeln("%svoid* data,", fstLine);
-        auto eol = args.empty ? lstEol : ",";
-        sf.writeln("%swl_proxy* proxy%s", indent, eol);
-        foreach(i, arg; args)
-        {
-            eol = i == args.length-1 ? lstEol : ",";
-            sf.writeln("%s%s %s%s", indent, arg.evCType, arg.paramName, eol);
-        }
-    }
-
-    void writePrivListenerStub(SourceFile sf)
-    {
-        immutable fstLine = format("void wl_d_on_%s_%s(", ifaceName, name);
-        immutable indent = ' '.repeat.take(fstLine.length).array();
-        sf.writeln("%svoid* data,", fstLine);
-        auto eol = args.empty ? ")" : ",";
-        sf.writeln("%swl_proxy* proxy%s", indent, eol);
-        foreach(i, arg; args)
-        {
-            eol = i == args.length-1 ? ")" : ",";
-            sf.writeln("%s%s %s%s", indent, arg.evCType, arg.paramName, eol);
-        }
-        sf.bracedBlock!({
-            sf.writeln("nothrowFnWrapper!({");
-            sf.indentedBlock!({
-                sf.writeln("auto _p = WlProxy.get(proxy);");
-                sf.writeln("assert(_p, \"listener stub without proxy\");");
-                sf.writeln("auto _i = cast(%s)_p;", ifaceDName(ifaceName));
-                sf.writeln("assert(_i, \"listener stub proxy is not %s\");", ifaceDName(ifaceName));
-                sf.writeln("if (_i._%s)", dEvName);
-                sf.bracedBlock!({
-                    string sep = args.length ? ", " : "";
-                    sf.write("_i._%s(_i%s", dEvName, sep);
-                    foreach (i, arg; args)
-                    {
-                        sep = (i == args.length-1) ? "" : ", ";
-                        sf.write("%s%s", arg.dCastExpr(ifaceName), sep);
-                    }
-                    sf.writeln(");");
-                });
-
-            });
-            sf.writeln("});");
-        });
-    }
 }
 
 
@@ -765,6 +806,10 @@ class ClientMessage : Message
         super(el, ifaceName);
     }
 
+    @property auto clArgs()
+    {
+        return args.map!(a => cast(ClientArg)a);
+    }
 
     void writeRequestCode(SourceFile sf)
     {
@@ -784,7 +829,7 @@ class ClientMessage : Message
 
     void writeEventDgAlias(SourceFile sf)
     {
-        sf.writeln("/// Event delegate signature of %s.%s.", ifaceDName(ifaceName), dEvName);
+        sf.writeln("/// Event delegate signature of %s.%s.", ifaceDName(ifaceName), dHandlerName);
         immutable fstLine = format("alias %s = void delegate (", dEvDgType);
         immutable indent = ' '.repeat(fstLine.length).array();
         string eol = args.length ? "," : ");";
@@ -799,9 +844,9 @@ class ClientMessage : Message
     void writeEventDgAccessor(SourceFile sf)
     {
         description.writeCode(sf);
-        sf.writeln("@property void %s(%s dg)", dEvName, dEvDgType);
+        sf.writeln("@property void %s(%s dg)", dHandlerName, dEvDgType);
         sf.bracedBlock!({
-            sf.writeln("_%s = dg;", dEvName);
+            sf.writeln("_%s = dg;", dHandlerName);
         });
     }
 
@@ -809,7 +854,7 @@ class ClientMessage : Message
     {
         string[] prepArgs;
         string[] prepExpr = [
-            "proxy", reqOpCode
+            "proxy", opCodeName
         ];
         foreach(arg; args)
         {
@@ -819,7 +864,7 @@ class ClientMessage : Message
         string[] postStmt = isDtor ? ["super.destroyNotify();"] : [];
 
         description.writeCode(sf);
-        writeSig(sf, "void", dReqName, prepArgs);
+        writeSig(sf, "void", dMethodName, prepArgs);
         writeBody(sf, [], "wl_proxy_marshal", prepExpr, postStmt);
     }
 
@@ -827,7 +872,7 @@ class ClientMessage : Message
     {
         string[] prepArgs;
         string[] prepExpr = [
-            "proxy", reqOpCode, format("%s.iface.native", ifaceDName(reqRet.iface))
+            "proxy", opCodeName, format("%s.iface.native", ifaceDName(reqRet.iface))
         ];
         foreach(arg; args)
         {
@@ -842,7 +887,7 @@ class ClientMessage : Message
             }
         }
         description.writeCode(sf);
-        writeSig(sf, reqRetStr, dReqName, prepArgs);
+        writeSig(sf, reqRetStr, dMethodName, prepArgs);
         writeBody(sf, [],
             "auto _pp = wl_proxy_marshal_constructor", prepExpr,
             [   "if (!_pp) return null;",
@@ -856,7 +901,7 @@ class ClientMessage : Message
     {
         string[] prepArgs;
         string[] prepExpr = [
-            "proxy", reqOpCode, "iface.native", "ver"
+            "proxy", opCodeName, "iface.native", "ver"
         ];
         foreach(arg; args)
         {
@@ -872,7 +917,7 @@ class ClientMessage : Message
             }
         }
         description.writeCode(sf);
-        writeSig(sf, reqRetStr, dReqName, prepArgs);
+        writeSig(sf, reqRetStr, dMethodName, prepArgs);
         writeBody(sf, [],
             "auto _pp = wl_proxy_marshal_constructor_versioned", prepExpr,
             [   "if (!_pp) return null;",
@@ -880,6 +925,58 @@ class ClientMessage : Message
                 "if (_p) return _p;",
                 "return iface.makeProxy(_pp);"  ]
         );
+    }
+
+    void writePrivListenerSig(SourceFile sf)
+    {
+        enum fstLine = "void function(";
+        immutable lstEol = format(") %s;", cEvName);
+
+        immutable indent = ' '.repeat.take(fstLine.length).array();
+        sf.writeln("%svoid* data,", fstLine);
+        auto eol = args.empty ? lstEol : ",";
+        sf.writeln("%swl_proxy* proxy%s", indent, eol);
+        foreach(i, arg; enumerate(clArgs))
+        {
+            eol = i == args.length-1 ? lstEol : ",";
+            sf.writeln("%s%s %s%s", indent, arg.evCType, arg.paramName, eol);
+        }
+    }
+
+    void writePrivListenerStub(SourceFile sf)
+    {
+        immutable fstLine = format("void wl_d_on_%s_%s(", ifaceName, name);
+        immutable indent = ' '.repeat.take(fstLine.length).array();
+        sf.writeln("%svoid* data,", fstLine);
+        auto eol = args.empty ? ")" : ",";
+        sf.writeln("%swl_proxy* proxy%s", indent, eol);
+        foreach(i, arg; enumerate(clArgs))
+        {
+            eol = i == args.length-1 ? ")" : ",";
+            sf.writeln("%s%s %s%s", indent, arg.evCType, arg.paramName, eol);
+        }
+        sf.bracedBlock!({
+            sf.writeln("nothrowFnWrapper!({");
+            sf.indentedBlock!({
+                sf.writeln("auto _p = WlProxy.get(proxy);");
+                sf.writeln("assert(_p, \"listener stub without proxy\");");
+                sf.writeln("auto _i = cast(%s)_p;", ifaceDName(ifaceName));
+                sf.writeln("assert(_i, \"listener stub proxy is not %s\");", ifaceDName(ifaceName));
+                sf.writeln("if (_i._%s)", dHandlerName);
+                sf.bracedBlock!({
+                    string sep = args.length ? ", " : "";
+                    sf.write("_i._%s(_i%s", dHandlerName, sep);
+                    foreach (i, arg; args)
+                    {
+                        sep = (i == args.length-1) ? "" : ", ";
+                        sf.write("%s%s", arg.dCastExpr(ifaceName), sep);
+                    }
+                    sf.writeln(");");
+                });
+
+            });
+            sf.writeln("});");
+        });
     }
 }
 
@@ -889,10 +986,37 @@ class ServerMessage : Message
     {
         super(el, ifaceName);
     }
+
+    @property auto svArgs()
+    {
+        return args.map!(a => cast(ClientArg)a);
+    }
+
+    @property string sendName()
+    {
+        return "send" ~ titleCamelName(name);
+    }
+
+    void writeSendResMethod(SourceFile sf)
+    {
+        description.writeCode(sf);
+        string[] rtArgs;
+        string[] exprs = [
+            "this.native",
+            opCodeName,
+        ];
+        foreach (arg; args)
+        {
+            rtArgs ~= format("%s %s", arg.dType, arg.paramName);
+            exprs ~= arg.cCastExpr;
+        }
+        writeSig(sf, "void", sendName, rtArgs);
+        writeBody(sf, [], "wl_resource_post_event", exprs, []);
+    }
 }
 
 
-class Interface
+abstract class Interface
 {
     string protocol;
     string name;
@@ -1066,7 +1190,7 @@ class ClientInterface : Interface
                 sf.writeln();
                 foreach(msg; events)
                 {
-                    sf.writeln("private %s _%s;", msg.dEvDgType, msg.dEvName);
+                    sf.writeln("private %s _%s;", msg.dEvDgType, msg.dHandlerName);
                 }
             }
         });
@@ -1079,15 +1203,15 @@ class ClientInterface : Interface
             sf.writeln();
             foreach(i, msg; requests)
             {
-                sf.writeln("/// Op-code of %s.%s.", dName, msg.dReqName);
-                sf.writeln("enum %s = %d;", msg.reqOpCode, i);
+                sf.writeln("/// Op-code of %s.%s.", dName, msg.dMethodName);
+                sf.writeln("enum %s = %d;", msg.opCodeName, i);
             }
             sf.writeln();
             foreach(msg; requests)
             {
                 sf.writeln(
                     "/// Version of %s protocol introducing %s.%s.",
-                    protocol, dName, msg.dReqName
+                    protocol, dName, msg.dMethodName
                 );
                 sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
             }
@@ -1099,9 +1223,9 @@ class ClientInterface : Interface
             {
                 sf.writeln(
                     "/// %s protocol version introducing %s.%s.",
-                    protocol, dName, msg.dEvName
+                    protocol, dName, msg.dHandlerName
                 );
-                sf.writeln("enum %sSinceVersion = %d;", msg.dEvName, msg.since);
+                sf.writeln("enum %sSinceVersion = %d;", msg.dHandlerName, msg.since);
             }
         }
     }
@@ -1131,7 +1255,7 @@ class ClientInterface : Interface
 
         sf.writeln("struct %s_listener", name);
         sf.bracedBlock!({
-            foreach(ev; events)
+            foreach(ev; clEvents)
             {
                 ev.writePrivListenerSig(sf);
             }
@@ -1152,7 +1276,7 @@ class ClientInterface : Interface
     {
         if (!writeEvents) return;
 
-        foreach(ev; events)
+        foreach(ev; clEvents)
         {
             sf.writeln();
             ev.writePrivListenerStub(sf);
@@ -1165,6 +1289,16 @@ class ServerInterface : Interface
     this (Element el, string protocol)
     {
         super(el, protocol);
+    }
+
+    @property auto svRequests()
+    {
+        return requests.map!(m => cast(ServerMessage)m);
+    }
+
+    @property auto svEvents()
+    {
+        return events.map!(m => cast(ServerMessage)m);
     }
 
     override void writeCode(SourceFile sf)
@@ -1180,7 +1314,16 @@ class ServerInterface : Interface
                     sf.writeln("super(native);");
                 });
             }
-            else
+
+            writeConstants(sf);
+
+            foreach (en; enums)
+            {
+                sf.writeln();
+                en.writeCode(sf);
+            }
+
+            if (name != "wl_display")
             {
                 if (isGlobal)
                 {
@@ -1190,6 +1333,40 @@ class ServerInterface : Interface
                 writeResourceCode(sf);
             }
         });
+    }
+
+    void writeConstants(SourceFile sf)
+    {
+        if (events.length)
+        {
+            sf.writeln();
+            foreach(i, msg; events)
+            {
+                sf.writeln("/// Op-code of %s.%s.", dName, msg.dMethodName);
+                sf.writeln("enum %s = %d;", msg.opCodeName, i);
+            }
+            sf.writeln();
+            foreach(msg; events)
+            {
+                sf.writeln(
+                    "/// Version of %s protocol introducing %s.%s.",
+                    protocol, dName, msg.dMethodName
+                );
+                sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
+            }
+        }
+        if (requests.length)
+        {
+            sf.writeln();
+            foreach(msg; requests)
+            {
+                sf.writeln(
+                    "/// %s protocol version introducing %s.%s.",
+                    protocol, dName, msg.dHandlerName
+                );
+                sf.writeln("enum %sSinceVersion = %d;", msg.dHandlerName, msg.since);
+            }
+        }
     }
 
     void writeGlobalCode(SourceFile sf)
@@ -1211,6 +1388,11 @@ class ServerInterface : Interface
             sf.bracedBlock!({
                 sf.writeln("super(native);");
             });
+            foreach(ev; svEvents)
+            {
+                sf.writeln();
+                ev.writeSendResMethod(sf);
+            }
         });
     }
 
@@ -1226,7 +1408,7 @@ class ServerInterface : Interface
 }
 
 
-class Protocol
+abstract class Protocol
 {
     string name;
     string copyright;
@@ -1470,6 +1652,7 @@ class ServerProtocol : Protocol
         sf.writeln("import wayland.native.server;");
         sf.writeln("import wayland.native.util;");
         sf.writeln("import wayland.util;");
+        sf.writeln("import std.string : toStringz;");
         sf.writeln();
 
         foreach(iface; ifaces)
