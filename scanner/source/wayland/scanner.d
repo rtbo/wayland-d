@@ -766,7 +766,7 @@ abstract class Message
     }
 
     void writeBody(SourceFile sf, string[] preStmts, string mainStmt,
-                    string[] expr, string[] postStmt)
+                    string[] exprs, string[] postStmt)
     {
         sf.bracedBlock!({
             foreach (ps; preStmts)
@@ -774,12 +774,30 @@ abstract class Message
                 sf.writeln(ps);
             }
             sf.writeln("%s(", mainStmt);
-            foreach (i, e; expr)
-            {
-                if (i == 0) sf.write("    ");
-                else sf.write(", ");
-                sf.write(e);
-            }
+            sf.indentedBlock!({
+                immutable ic = sf.indentChars;
+                int width = ic;
+                foreach (i, e; exprs)
+                {
+                    if (i != 0)
+                    {
+                        sf.write(",");
+                        width += 1;
+                    }
+                    width += e.length;
+                    if (width > wrapWidth)
+                    {
+                        sf.writeln();
+                        width = ic;
+                    }
+                    else if (i != 0)
+                    {
+                        sf.write(" ");
+                        width += 1;
+                    }
+                    sf.write(e);
+                }
+            });
             sf.writeln();
             sf.writeln(");");
             foreach (ps; postStmt)
@@ -1954,6 +1972,7 @@ string titleCamelName(in string[] comps...) pure
 }
 
 enum charsPerIndent = 4;
+enum wrapWidth = 80;
 
 string indentStr(int indent) pure
 {
@@ -1968,7 +1987,8 @@ string qualfiedTypeName(in string name) pure
             .join(".");
 }
 
-string splitLinesForWidth(string input, in string suffix, in string indent, in size_t width=80) pure
+string splitLinesForWidth(string input, in string suffix, in string indent,
+                        in size_t width=wrapWidth) pure
 {
     string res;
     size_t w;
