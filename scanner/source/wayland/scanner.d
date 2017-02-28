@@ -1818,6 +1818,11 @@ class SourceFile
         return _indentLev;
     }
 
+    @property int indentChars() const
+    {
+        return _indentLev * charsPerIndent;
+    }
+
     void indent()
     {
         _indentLev += 1;
@@ -1948,9 +1953,11 @@ string titleCamelName(in string[] comps...) pure
     return name;
 }
 
+enum charsPerIndent = 4;
+
 string indentStr(int indent) pure
 {
-    return "    ".replicate(indent);
+    return ' '.repeat(indent * charsPerIndent).array();
 }
 
 string qualfiedTypeName(in string name) pure
