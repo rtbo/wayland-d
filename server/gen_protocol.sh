@@ -7,11 +7,11 @@ PROTOCOL=$WL_D_DIR/protocol/wayland.xml
 SERVER_SRC=$SERVER_DIR/source/wayland/server/protocol.d
 SCANNER_SRC=$WL_D_DIR/scanner/source/wayland/scanner.d
 
-if [ $PROTOCOL -ot $SERVER_SRC ]; then
-    if [ $SCANNER_SRC -ot $SERVER_SRC ]; then
-        exit 0
-    fi
-fi
+# if [ $PROTOCOL -ot $SERVER_SRC ]; then
+#     if [ $SCANNER_SRC -ot $SERVER_SRC ]; then
+#         exit 0
+#     fi
+# fi
 
 cd $WL_D_DIR
 
