@@ -156,6 +156,7 @@ class ServerInterface : Interface
                 sf.writeln();
                 en.writeCode(sf);
             }
+            if (enums.length) sf.writeln();
 
             if (name != "wl_display")
             {
@@ -173,7 +174,6 @@ class ServerInterface : Interface
     {
         if (events.length)
         {
-            sf.writeln();
             foreach(i, msg; events)
             {
                 sf.writeln("/// Op-code of %s.%s.", dName, msg.dMethodName);
