@@ -9,13 +9,11 @@ class WlEventLoop : Native!wl_event_loop
     mixin nativeImpl!(wl_event_loop);
 
     alias DestroyDg = void delegate(WlEventLoop loop);
-    nothrow
-    {
-        alias FdDg = int delegate (int fd, uint mask);
-        alias TimerDg = int delegate ();
-        alias SignalDg = int delegate (int sigNum);
-        alias IdleDg = void delegate ();
-    }
+    alias FdDg = int delegate (int fd, uint mask);
+    alias TimerDg = int delegate ();
+    alias SignalDg = int delegate (int sigNum);
+    alias IdleDg = void delegate ();
+
 
     private DestroyDg _onDestroy;
 
@@ -192,26 +190,34 @@ private extern(C) nothrow
 
     int eventLoopFdFunc(int fd, uint mask, void* data)
     {
-        auto dg = *cast(WlEventLoop.FdDg*)data;
-        return dg(fd, mask);
+        return nothrowFnWrapper!({
+            auto dg = *cast(WlEventLoop.FdDg*)data;
+            return dg(fd, mask);
+        });
     }
 
     int eventLoopTimerFunc(void* data)
     {
-        auto dg = *cast(WlEventLoop.TimerDg*)data;
-        return dg();
+        return nothrowFnWrapper!({
+            auto dg = *cast(WlEventLoop.TimerDg*)data;
+            return dg();
+        });
     }
 
     int eventLoopSignalFunc(int sigNumber, void* data)
     {
-        auto dg = *cast(WlEventLoop.SignalDg*)data;
-        return dg(sigNumber);
+        return nothrowFnWrapper!({
+            auto dg = *cast(WlEventLoop.SignalDg*)data;
+            return dg(sigNumber);
+        });
     }
 
     void eventLoopIdleFunc(void* data)
     {
-        auto dg = *cast(WlEventLoop.IdleDg*)data;
-        dg();
+        nothrowFnWrapper!({
+            auto dg = *cast(WlEventLoop.IdleDg*)data;
+            dg();
+        });
     }
 
     __gshared wl_listener evLoopDestroyListener;
