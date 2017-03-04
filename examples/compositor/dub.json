@@ -1,0 +1,19 @@
+{
+	"name": "compositor",
+	"targetType": "executable",
+	"authors": [
+		"Rémi Thebault"
+	],
+	"description": "A wayland compositor example.",
+	"copyright": "Copyright © 2017, Rémi Thebault",
+	"license": "MIT",
+	"dependencies": {
+		"wayland-d:server": {
+			"path": "../../server"
+		},
+		"xcb-d":			"~>2.1.0",
+		"xcb-util-wm-d":	"~>0.5.0",
+		"xkbcommon-d":      "~>0.5.1",
+		"xlib-d":           "~>0.1.1"
+	}
+}
