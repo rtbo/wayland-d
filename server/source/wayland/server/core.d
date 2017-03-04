@@ -12,6 +12,14 @@ import std.exception : enforce;
 import core.sys.posix.sys.types;
 
 
+enum : uint
+{
+    WL_EVENT_READABLE = 0x01,
+    WL_EVENT_WRITABLE = 0x02,
+    WL_EVENT_HANGUP   = 0x04,
+    WL_EVENT_ERROR    = 0x08
+}
+
 
 immutable abstract class WlServerInterface : WlInterface
 {
