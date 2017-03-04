@@ -3,10 +3,22 @@
 module wayland.server;
 
 public import wayland.server.core;
+public import wayland.server.protocol;
+
+
+// placed here to avoid cyclic dependencies
+shared static this()
+{
+    displayDestroyListener.notify = &displayDestroy;
+    clientCreatedListener.notify = &clientCreated;
+    clientDestroyListener.notify = &clientDestroy;
+    resourceCreatedListener.notify = &resourceCreated;
+    resourceDestroyListener.notify = &resourceDestroy;
+}
 
 version(WlDynamic)
 {
-    import wayland.native.client;
+    import wayland.native.server;
     import wayland.native.util;
 
     import derelict.util.loader : SharedLibLoader;

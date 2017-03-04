@@ -1,7 +1,7 @@
 // Copyright © 2017 Rémi Thebault
 module wayland.server.core;
 
-import wayland.server.protocol;
+import wayland.server.protocol : WlDisplay;
 import wayland.server.eventloop;
 import wayland.native.server;
 import wayland.native.util;
@@ -318,7 +318,7 @@ class WlResource : Native!wl_resource
     }
 }
 
-private extern(C) nothrow
+package extern(C) nothrow
 {
     void displayDestroy(wl_listener*, void* data)
     {
@@ -374,6 +374,7 @@ private extern(C) nothrow
         });
     }
 
+    // initialization in package.d to avoid cyclic dependencies
     __gshared wl_listener displayDestroyListener;
     __gshared wl_listener clientCreatedListener;
     __gshared wl_listener clientDestroyListener;
@@ -381,11 +382,3 @@ private extern(C) nothrow
     __gshared wl_listener resourceDestroyListener;
 }
 
-shared static this()
-{
-    displayDestroyListener.notify = &displayDestroy;
-    clientCreatedListener.notify = &clientCreated;
-    clientDestroyListener.notify = &clientDestroy;
-    resourceCreatedListener.notify = &resourceCreated;
-    resourceDestroyListener.notify = &resourceDestroy;
-}
