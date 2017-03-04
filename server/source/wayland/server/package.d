@@ -4,6 +4,7 @@ module wayland.server;
 
 public import wayland.server.core;
 public import wayland.server.protocol;
+public import wayland.server.eventloop;
 
 
 // placed here to avoid cyclic dependencies
