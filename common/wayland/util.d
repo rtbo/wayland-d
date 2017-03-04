@@ -50,11 +50,11 @@ immutable abstract class WlInterface
  +  The try-catch statement will print a warning if an exception is thrown.
  +  The try-catch statement will terminate runtime and exit program if an error is thrown.
  +/
-void nothrowFnWrapper(alias fn)() nothrow
+auto nothrowFnWrapper(alias fn)() nothrow
 {
     try
     {
-        fn();
+        return fn();
     }
     catch(Exception ex)
     {
@@ -72,6 +72,11 @@ void nothrowFnWrapper(alias fn)() nothrow
         collectException(stderr.writeln("wayland-d: aborting due to error in listener stub: "~err.msg));
         collectException(Runtime.terminate());
         exit(1);
+    }
+    alias rt = typeof(fn());
+    static if (!is(rt == void))
+    {
+        return rt.init;
     }
 }
 
