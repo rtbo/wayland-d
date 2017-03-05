@@ -192,8 +192,8 @@ class ClientMessage : Message
         string[] postStmt = isDtor ? ["super.destroyNotify();"] : [];
 
         description.writeCode(sf);
-        writeSig(sf, "void", dMethodName, rtArgs);
-        writeBody(sf, [], "wl_proxy_marshal", exprs, postStmt);
+        sf.writeFnSig("void", dMethodName, rtArgs);
+        sf.writeFnBody([], "wl_proxy_marshal", exprs, postStmt);
     }
 
     void writeNewObjReqDefinitionCode(SourceFile sf)
@@ -215,8 +215,8 @@ class ClientMessage : Message
             }
         }
         description.writeCode(sf);
-        writeSig(sf, reqRetStr, dMethodName, rtArgs);
-        writeBody(sf, [],
+        sf.writeFnSig(reqRetStr, dMethodName, rtArgs);
+        sf.writeFnBody([],
             "auto _pp = wl_proxy_marshal_constructor", exprs,
             [   "if (!_pp) return null;",
                 "auto _p = WlProxy.get(_pp);",
@@ -245,8 +245,8 @@ class ClientMessage : Message
             }
         }
         description.writeCode(sf);
-        writeSig(sf, reqRetStr, dMethodName, rtArgs);
-        writeBody(sf, [],
+        sf.writeFnSig(reqRetStr, dMethodName, rtArgs);
+        sf.writeFnBody([],
             "auto _pp = wl_proxy_marshal_constructor_versioned", exprs,
             [   "if (!_pp) return null;",
                 "auto _p = WlProxy.get(_pp);",

@@ -112,8 +112,8 @@ class ServerMessage : Message
             rtArgs ~= format("%s %s", arg.dType, arg.paramName);
             exprs ~= arg.cCastExpr;
         }
-        writeSig(sf, "void", sendName, rtArgs);
-        writeBody(sf, [], "wl_resource_post_event", exprs, []);
+        sf.writeFnSig("void", sendName, rtArgs);
+        sf.writeFnBody([], "wl_resource_post_event", exprs, []);
     }
 }
 

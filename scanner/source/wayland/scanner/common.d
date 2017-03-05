@@ -30,6 +30,71 @@ interface Factory
 Factory fact;
 
 
+void writeFnSig(SourceFile sf, string ret, string name, string[] rtArgs,
+                string[] ctArgs=[], string constraint="")
+{
+    immutable ctSig = ctArgs.length ? format("!(%(%s, %))", ctArgs) : "";
+    immutable fstLine = format("%s %s%s(", ret, name, ctSig);
+    immutable indent = ' '.repeat(fstLine.length).array();
+    sf.write(fstLine);
+    foreach (i, rta; rtArgs)
+    {
+        if (i != 0)
+        {
+            sf.writeln(",");
+            sf.write(indent);
+        }
+        sf.write(rta);
+    }
+    sf.writeln(")");
+    if (constraint.length)
+    {
+        sf.writeln("if (%s)", constraint);
+    }
+}
+
+void writeFnBody(SourceFile sf, string[] preStmts, string mainStmt,
+                string[] exprs, string[] postStmt)
+{
+    sf.bracedBlock!({
+        foreach (ps; preStmts)
+        {
+            sf.writeln(ps);
+        }
+        sf.writeln("%s(", mainStmt);
+        sf.indentedBlock!({
+            immutable ic = sf.indentChars;
+            int width = ic;
+            foreach (i, e; exprs)
+            {
+                if (i != 0)
+                {
+                    sf.write(",");
+                    width += 1;
+                }
+                width += e.length;
+                if (width > wrapWidth)
+                {
+                    sf.writeln();
+                    width = ic;
+                }
+                else if (i != 0)
+                {
+                    sf.write(" ");
+                    width += 1;
+                }
+                sf.write(e);
+            }
+        });
+        sf.writeln();
+        sf.writeln(");");
+        foreach (ps; postStmt)
+        {
+            sf.writeln(ps);
+        }
+    });
+}
+
 enum ArgType
 {
     Int, UInt, Fixed, String, Object, NewId, Array, Fd
@@ -478,71 +543,6 @@ abstract class Message
             }
         }
         return sig;
-    }
-
-    void writeSig(SourceFile sf, string ret, string name, string[] rtArgs,
-                    string[] ctArgs=[], string constraint="")
-    {
-        immutable ctSig = ctArgs.length ? format("!(%(%s, %))", ctArgs) : "";
-        immutable fstLine = format("%s %s%s(", ret, name, ctSig);
-        immutable indent = ' '.repeat(fstLine.length).array();
-        sf.write(fstLine);
-        foreach (i, rta; rtArgs)
-        {
-            if (i != 0)
-            {
-                sf.writeln(",");
-                sf.write(indent);
-            }
-            sf.write(rta);
-        }
-        sf.writeln(")");
-        if (constraint.length)
-        {
-            sf.writeln("if (%s)", constraint);
-        }
-    }
-
-    void writeBody(SourceFile sf, string[] preStmts, string mainStmt,
-                    string[] exprs, string[] postStmt)
-    {
-        sf.bracedBlock!({
-            foreach (ps; preStmts)
-            {
-                sf.writeln(ps);
-            }
-            sf.writeln("%s(", mainStmt);
-            sf.indentedBlock!({
-                immutable ic = sf.indentChars;
-                int width = ic;
-                foreach (i, e; exprs)
-                {
-                    if (i != 0)
-                    {
-                        sf.write(",");
-                        width += 1;
-                    }
-                    width += e.length;
-                    if (width > wrapWidth)
-                    {
-                        sf.writeln();
-                        width = ic;
-                    }
-                    else if (i != 0)
-                    {
-                        sf.write(" ");
-                        width += 1;
-                    }
-                    sf.write(e);
-                }
-            });
-            sf.writeln();
-            sf.writeln(");");
-            foreach (ps; postStmt)
-            {
-                sf.writeln(ps);
-            }
-        });
     }
 
     void writePrivIfaceMsg(SourceFile sf)
