@@ -26,6 +26,8 @@ interface CompositorBackendInterface
 {
     @property WlDisplay display();
 
+    void exit();
+
 
     void eventExpose();
 

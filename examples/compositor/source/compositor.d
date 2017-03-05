@@ -21,6 +21,11 @@ class Compositor : CompositorBackendInterface
 		return _display;
 	}
 
+	override void exit()
+	{
+		_display.terminate();
+	}
+
     override void eventExpose()
 	{}
 
@@ -44,8 +49,6 @@ class Compositor : CompositorBackendInterface
 
 		_display.run();
 
-		output.disable();
-		_backend.terminate();
 		_display.destroy();
 		return 0;
 	}

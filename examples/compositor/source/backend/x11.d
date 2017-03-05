@@ -26,6 +26,8 @@ final class X11Backend : Backend
         Display* dpy;
         xcb_connection_t* conn;
         Atoms atoms;
+
+        X11Output[] _outputs;
     }
 
 
@@ -65,7 +67,9 @@ final class X11Backend : Backend
 
     override Output createOutput()
     {
-        return new X11Output(this);
+        auto res = new X11Output(this);
+        _outputs ~= res;
+        return res;
     }
 
     override void terminate()
@@ -93,7 +97,6 @@ private:
     int handleEvent(int, uint mask)
     {
         int count;
-
         while(1)
         {
             auto ev = (mask & WL_EVENT_READABLE) ?
@@ -101,11 +104,42 @@ private:
                 xcb_poll_for_queued_event(conn);
             if (!ev) break;
 
-            //auto respType = ev.response_type & ~0x80;
+            auto respType = ev.response_type & ~0x80;
+            switch(respType)
+            {
+            case XCB_CLIENT_MESSAGE:
+                auto clEv = cast(xcb_client_message_event_t*)ev;
+                auto atom = clEv.data.data32[0];
+                auto win = clEv.window;
+                if (atom == atoms.wm_delete_window)
+                {
+                    loop.addIdle({
+                        foreach(op; _outputs)
+                        {
+                            if (op._win == win)
+                            {
+                                destroyOutput(op);
+                                break;
+                            }
+                        }
+                    });
+                }
+                break;
+            default:
+                break;
+            }
 
             ++count;
         }
         return count;
+    }
+
+    void destroyOutput(X11Output op)
+    {
+        import std.algorithm : remove;
+        _outputs = _outputs.remove!(o => o is op);
+        op.disable();
+        if (!_outputs.length) comp.exit();
     }
 }
 
