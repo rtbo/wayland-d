@@ -12,6 +12,7 @@ import arsd.dom;
 
 import std.algorithm;
 import std.format;
+import std.range;
 
 alias Interface = wayland.scanner.common.Interface;
 
@@ -135,6 +136,11 @@ class ServerInterface : Interface
         return events.map!(m => cast(ServerMessage)m);
     }
 
+    @property string onBindFuncName()
+    {
+        return format("onBind%s", titleCamelName(name));
+    }
+
     override void writeCode(SourceFile sf)
     {
         description.writeCode(sf);
@@ -175,6 +181,7 @@ class ServerInterface : Interface
 
     void writeIfaceAccess(SourceFile sf)
     {
+        sf.writeln("/// Access to the interface of \"%s.%s\"", protocol, name);
         sf.writeln("static @property immutable(WlServerInterface) iface()");
         sf.bracedBlock!({
             sf.writeln("return %sIface;", camelName(name));
@@ -212,23 +219,34 @@ class ServerInterface : Interface
                 );
                 sf.writeln("enum %sSinceVersion = %d;", msg.dHandlerName, msg.since);
             }
-            sf.writeln();
         }
     }
 
     void writeGlobalCode(SourceFile sf)
     {
+        sf.writeln();
         sf.writeln("static class Global : WlGlobal");
         sf.bracedBlock!({
-            sf.writeln("this(wl_global* native)");
+            sf.writeln("/// Bind delegate signature.");
+            sf.writeln("alias OnBindDg = void delegate(WlClient cl, uint ver, uint id);");
+            sf.writeln();
+            sf.writeln("/// Creates a Global object.");
+            sf.writeln("this(WlDisplay dpy, uint ver, OnBindDg onBindDg)");
             sf.bracedBlock!({
-                sf.writeln("super(native);");
+                sf.writeln("super(wl_global_create(");
+                sf.indentedBlock!({
+                    sf.writeln("dpy.native, iface.native, ver, cast(void*)this, &%s", onBindFuncName);
+                });
+                sf.writeln("));");
             });
+            sf.writeln();
+            sf.writeln("private OnBindDg _onBindDg;");
         });
     }
 
     void writeResourceCode(SourceFile sf)
     {
+        sf.writeln();
         sf.writeln("static class Resource : WlResource");
         sf.bracedBlock!({
             sf.writeln("this(wl_resource* native)");
@@ -242,6 +260,21 @@ class ServerInterface : Interface
             }
         });
     }
+
+    void writePrivBindStub(SourceFile sf)
+    {
+        sf.writeln("void %s(wl_client* natCl, void* data, uint ver, uint id)", onBindFuncName);
+        sf.bracedBlock!({
+            sf.writeln("nothrowFnWrapper!({");
+            sf.indentedBlock!({
+                sf.writeln("auto g = cast(%s.Global)data;", dName);
+                sf.writeln("auto cl = cast(WlClient)ObjectCache.get(natCl);");
+                sf.writeln("assert(g && cl);");
+                sf.writeln("g._onBindDg(cl, ver, id);");
+            });
+            sf.writeln("});");
+        });
+    }
 }
 
 class ServerProtocol : Protocol
@@ -249,6 +282,16 @@ class ServerProtocol : Protocol
     this(Element el)
     {
         super(el);
+    }
+
+    @property auto svIfaces()
+    {
+        return ifaces.map!(i => cast(ServerInterface)i);
+    }
+
+    @property auto svGlobalIfaces()
+    {
+        return svIfaces.filter!(i => i.isGlobal);
     }
 
     override void writeCode(SourceFile sf, in Options opt)
@@ -277,11 +320,10 @@ class ServerProtocol : Protocol
 
         sf.writeln("extern(C) nothrow");
         sf.bracedBlock!({
-            foreach(i, iface; ifaces)
+            foreach(i, iface; enumerate(svGlobalIfaces.filter!(i=>i.name != "wl_display")))
             {
                 if (i != 0) sf.writeln();
-                //iface.writePrivServerListener(sf);
-                //iface.writePrivServerListenerStubs(sf);
+                iface.writePrivBindStub(sf);
             }
         });
     }
@@ -309,16 +351,6 @@ class ServerProtocol : Protocol
                     else
                         sf.writeln("return new %s.Resource(resource);", iface.dName);
                 });
-                if (iface.isGlobal)
-                {
-                    sf.writeln("override WlGlobal makeGlobal(wl_global* global) immutable");
-                    sf.bracedBlock!({
-                        if (iface.name == "wl_display")
-                            sf.writeln("assert(false, \"Display cannot have any global!\");");
-                        else
-                            sf.writeln("return new %s.Global(global);", iface.dName);
-                    });
-                }
             });
         }
         writeNativeIfaces(sf);
