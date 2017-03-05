@@ -147,7 +147,10 @@ class ServerInterface : Interface
                 sf.bracedBlock!({
                     sf.writeln("super(native);");
                 });
+                sf.writeln();
             }
+
+            writeIfaceAccess(sf);
 
             writeConstants(sf);
 
@@ -170,10 +173,19 @@ class ServerInterface : Interface
         });
     }
 
+    void writeIfaceAccess(SourceFile sf)
+    {
+        sf.writeln("static @property immutable(WlServerInterface) iface()");
+        sf.bracedBlock!({
+            sf.writeln("return %sIface;", camelName(name));
+        });
+    }
+
     void writeConstants(SourceFile sf)
     {
         if (events.length)
         {
+            sf.writeln();
             foreach(i, msg; events)
             {
                 sf.writeln("/// Op-code of %s.%s.", dName, msg.dMethodName);
@@ -188,10 +200,10 @@ class ServerInterface : Interface
                 );
                 sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
             }
-            sf.writeln();
         }
         if (requests.length)
         {
+            sf.writeln();
             foreach(msg; requests)
             {
                 sf.writeln(
