@@ -66,7 +66,6 @@ auto nothrowFnWrapper(alias fn)() nothrow
     {
         import core.runtime : Runtime;
         import core.stdc.stdlib : exit;
-        import core.runtime : Runtime;
         import std.exception : collectException;
         import std.stdio : stderr;
         collectException(stderr.writeln("wayland-d: aborting due to error in listener stub: "~err.msg));
