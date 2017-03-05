@@ -447,7 +447,7 @@ class ClientInterface : Interface
         }
     }
 
-    override void writePrivListener(SourceFile sf)
+    void writePrivListener(SourceFile sf)
     {
         if (!writeEvents) return;
 
@@ -470,7 +470,7 @@ class ClientInterface : Interface
         }
     }
 
-    override void writePrivListenerStubs(SourceFile sf)
+    void writePrivListenerStubs(SourceFile sf)
     {
         if (!writeEvents) return;
 
@@ -489,6 +489,11 @@ class ClientProtocol : Protocol
     this(Element el)
     {
         super(el);
+    }
+
+    @property auto clIfaces()
+    {
+        return ifaces.map!(iface => cast(ClientInterface)iface);
     }
 
     override void writeCode(SourceFile sf, in Options opt)
@@ -519,7 +524,7 @@ class ClientProtocol : Protocol
 
         sf.writeln("extern(C) nothrow");
         sf.bracedBlock!({
-            foreach(i, iface; ifaces)
+            foreach(i, iface; enumerate(clIfaces))
             {
                 if (i != 0) sf.writeln();
                 iface.writePrivListener(sf);

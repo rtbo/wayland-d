@@ -591,8 +591,6 @@ abstract class Interface
     }
 
     abstract void writeCode(SourceFile sf);
-    abstract void writePrivListener(SourceFile sf);
-    abstract void writePrivListenerStubs(SourceFile sf);
 
     @property string dName() const
     {

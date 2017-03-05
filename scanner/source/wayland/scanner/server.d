@@ -242,16 +242,6 @@ class ServerInterface : Interface
             }
         });
     }
-
-    override void writePrivListener(SourceFile sf)
-    {
-
-    }
-
-    override void writePrivListenerStubs(SourceFile sf)
-    {
-
-    }
 }
 
 class ServerProtocol : Protocol
