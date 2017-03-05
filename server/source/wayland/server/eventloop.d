@@ -57,42 +57,22 @@ class WlEventLoop : Native!wl_event_loop
 
     WlFdEventSource addFd(int fd, uint mask, FdDg dg)
     {
-        return new WlFdEventSource(
-            wl_event_loop_add_fd (
-                native, fd, mask, &eventLoopFdFunc, &dg
-            ),
-            fd, dg
-        );
+        return new WlFdEventSource(native, fd, mask, dg);
     }
 
     WlTimerEventSource addTimer(TimerDg dg)
     {
-        return new WlTimerEventSource(
-            wl_event_loop_add_timer(
-                native, &eventLoopTimerFunc, &dg
-            ),
-            dg
-        );
+        return new WlTimerEventSource(native, dg);
     }
 
     WlSignalEventSource addSignal(int signalNum, SignalDg dg)
     {
-        return new WlSignalEventSource(
-            wl_event_loop_add_signal(
-                native, signalNum, &eventLoopSignalFunc, &dg
-            ),
-            signalNum, dg
-        );
+        return new WlSignalEventSource(native, signalNum, dg);
     }
 
     WlIdleEventSource addIdle(IdleDg dg)
     {
-        return new WlIdleEventSource(
-            wl_event_loop_add_idle(
-                native, &eventLoopIdleFunc, &dg
-            ),
-            dg
-        );
+        return new WlIdleEventSource(native, dg);
     }
 }
 
@@ -100,7 +80,7 @@ abstract class WlEventSource : Native!wl_event_source
 {
     mixin nativeImpl!(wl_event_source);
 
-    this (wl_event_source* native)
+    this(wl_event_source* native)
     {
         _native = native;
     }
@@ -118,14 +98,14 @@ abstract class WlEventSource : Native!wl_event_source
 
 class WlFdEventSource : WlEventSource
 {
-    private int _fd;
-    private WlEventLoop.FdDg _dg;
+    private WlEventLoop.FdDg dg;
 
-    this (wl_event_source* native, int fd, WlEventLoop.FdDg dg)
+    this (wl_event_loop* nativeLoop, int fd, uint mask, WlEventLoop.FdDg dg)
     {
-        super(native);
-        _fd = fd;
-        _dg = dg;
+        this.dg = dg;
+        super(wl_event_loop_add_fd(
+            nativeLoop, fd, mask, &eventLoopFdFunc, cast(void*)this
+        ));
     }
 
     int update(uint mask)
@@ -136,12 +116,14 @@ class WlFdEventSource : WlEventSource
 
 class WlTimerEventSource : WlEventSource
 {
-    private WlEventLoop.TimerDg _dg;
+    private WlEventLoop.TimerDg dg;
 
-    this (wl_event_source* native, WlEventLoop.TimerDg dg)
+    this (wl_event_loop* nativeLoop, WlEventLoop.TimerDg dg)
     {
-        super(native);
-        _dg = dg;
+        this.dg = dg;
+        super(wl_event_loop_add_timer(
+            nativeLoop, &eventLoopTimerFunc, cast(void*)this
+        ));
     }
 
     int update(uint msDelay)
@@ -152,25 +134,27 @@ class WlTimerEventSource : WlEventSource
 
 class WlSignalEventSource : WlEventSource
 {
-    private int _signalNum;
-    private WlEventLoop.SignalDg _dg;
+    private WlEventLoop.SignalDg dg;
 
-    this (wl_event_source* native, int signalNum, WlEventLoop.SignalDg dg)
+    this (wl_event_loop* nativeLoop, int signalNum, WlEventLoop.SignalDg dg)
     {
-        super(native);
-        _signalNum = signalNum;
-        _dg = dg;
+        this.dg = dg;
+        super(wl_event_loop_add_signal(
+            nativeLoop, signalNum, &eventLoopSignalFunc, cast(void*)this
+        ));
     }
 }
 
 class WlIdleEventSource : WlEventSource
 {
-    private WlEventLoop.IdleDg _dg;
+    private WlEventLoop.IdleDg dg;
 
-    this (wl_event_source* native, WlEventLoop.IdleDg dg)
+    this (wl_event_loop* nativeLoop, WlEventLoop.IdleDg dg)
     {
-        super(native);
-        _dg = dg;
+        this.dg = dg;
+        super(wl_event_loop_add_idle(
+            nativeLoop, &eventLoopIdleFunc, cast(void*)this
+        ));
     }
 }
 
@@ -191,32 +175,32 @@ private extern(C) nothrow
     int eventLoopFdFunc(int fd, uint mask, void* data)
     {
         return nothrowFnWrapper!({
-            auto dg = *cast(WlEventLoop.FdDg*)data;
-            return dg(fd, mask);
+            auto src = cast(WlFdEventSource)data;
+            return src.dg(fd, mask);
         });
     }
 
     int eventLoopTimerFunc(void* data)
     {
         return nothrowFnWrapper!({
-            auto dg = *cast(WlEventLoop.TimerDg*)data;
-            return dg();
+            auto src = cast(WlTimerEventSource)data;
+            return src.dg();
         });
     }
 
     int eventLoopSignalFunc(int sigNumber, void* data)
     {
         return nothrowFnWrapper!({
-            auto dg = *cast(WlEventLoop.SignalDg*)data;
-            return dg(sigNumber);
+            auto src = cast(WlSignalEventSource)data;
+            return src.dg(sigNumber);
         });
     }
 
     void eventLoopIdleFunc(void* data)
     {
         nothrowFnWrapper!({
-            auto dg = *cast(WlEventLoop.IdleDg*)data;
-            dg();
+            auto src = cast(WlIdleEventSource)data;
+            src.dg();
         });
     }
 
