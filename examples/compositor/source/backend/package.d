@@ -1,5 +1,8 @@
 module backend;
 
+import output;
+import wayland.server;
+
 import std.typecons : Flag;
 
 class BackendConfig
@@ -16,32 +19,29 @@ class BackendConfig
     int width, height;
 }
 
-/// interface that must be implemented by the compositor
-/// and supplied to the backend.
-/// The backend send events to the compositor using this interface
-interface BackendHandler
+/// Interface that must be implemented by the compositor and supplied to the
+/// backend. The backend send events and request data to the compositor using
+/// this interface.
+interface CompositorBackendInterface
 {
-    /// Called when surface must be exposed
-    void expose();
+    @property WlDisplay display();
 
-    void mouseMove(int x, int y);
 
-    void mouseButton(int button, Flag!"down" down);
+    void eventExpose();
 
-    void key(int key, Flag!"down" down);
+    void eventMouseMove(int x, int y);
+
+    void eventMouseButton(int button, Flag!"down" down);
+
+    void eventKey(int key, Flag!"down" down);
 }
 
-/// interface that must implement backends.
+/// Interface that must implement backends.
 /// The compositor send requests to the backend using this interface.
 interface Backend
 {
-    @property string name();
-    @property BackendConfig config();
-    @property BackendHandler handler();
-
-    void initialize(BackendConfig config, BackendHandler handler);
-    void terminate();
-
+    /// Creates backend with specified name.
+    /// If name is empty, default backend is created.
     static Backend create(string name="")
     {
         if (name == "x11" || name == "")
@@ -51,5 +51,14 @@ interface Backend
         }
         return null;
     }
-}
 
+    /// Name of the backend.
+    @property string name();
+
+
+    void initialize(BackendConfig config, CompositorBackendInterface comp);
+
+    Output createOutput();
+
+    void terminate();
+}

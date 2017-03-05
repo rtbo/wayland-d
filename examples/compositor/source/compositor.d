@@ -7,28 +7,46 @@ import std.typecons : Flag;
 import core.thread;
 import core.time;
 
-class Compositor : BackendHandler
+class Compositor : CompositorBackendInterface
 {
-	Backend backend;
+	private {
+		Backend _backend;
 
-    override void expose()
+		WlDisplay _display;
+		WlEventLoop _loop;
+	}
+
+	override @property WlDisplay display()
+	{
+		return _display;
+	}
+
+    override void eventExpose()
 	{}
 
-    override void mouseMove(int x, int y)
+    override void eventMouseMove(int x, int y)
 	{}
 
-    override void mouseButton(int button, Flag!"down" down)
+    override void eventMouseButton(int button, Flag!"down" down)
 	{}
 
-    override void key(int key, Flag!"down" down)
+    override void eventKey(int key, Flag!"down" down)
 	{}
 
 	int run()
 	{
-		backend = Backend.create();
-		backend.initialize(new BackendConfig(false, 1024, 768), this);
-		Thread.sleep(dur!"msecs"(1000));
-		backend.terminate();
+		_display = WlDisplay.create();
+		_backend = Backend.create();
+		_backend.initialize(new BackendConfig(false, 640, 480), this);
+
+		auto output = _backend.createOutput();
+		output.enable();
+
+		_display.run();
+
+		output.disable();
+		_backend.terminate();
+		_display.destroy();
 		return 0;
 	}
 }
