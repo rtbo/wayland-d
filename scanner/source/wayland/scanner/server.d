@@ -188,10 +188,10 @@ class ServerInterface : Interface
                 );
                 sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
             }
+            sf.writeln();
         }
         if (requests.length)
         {
-            sf.writeln();
             foreach(msg; requests)
             {
                 sf.writeln(
@@ -200,6 +200,7 @@ class ServerInterface : Interface
                 );
                 sf.writeln("enum %sSinceVersion = %d;", msg.dHandlerName, msg.since);
             }
+            sf.writeln();
         }
     }
 
