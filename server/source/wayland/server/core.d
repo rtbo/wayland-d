@@ -180,7 +180,7 @@ class WlGlobal : Native!wl_global
 {
     mixin nativeImpl!wl_global;
 
-    this (wl_global* wl_global)
+    this (wl_global* native)
     {
         _native = native;
     }
