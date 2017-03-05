@@ -21,6 +21,6 @@ for d in ${DEPENDS[@]}; do
                         -m wayland.server.protocol \
                         -i $PROTOCOL \
                         -o $TARGET
-        exit 0
+        exit $?
     fi
 done
