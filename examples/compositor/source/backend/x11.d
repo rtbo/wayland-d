@@ -177,6 +177,7 @@ final class X11Output : Output
 
     this (X11Backend backend)
     {
+        super(backend.comp.display);
         _backend = backend;
         _conn = backend.conn;
         _screen = backend.defaultScreen;
@@ -260,10 +261,12 @@ final class X11Output : Output
 		            XCB_ATOM_ATOM, 32, 1, &_atoms.wm_delete_window);
         xcb_map_window(_conn, _win);
         xcb_flush(_conn);
+        super.enable();
     }
 
     override void disable()
     {
+        super.disable();
         xcb_unmap_window(_conn, _win);
         xcb_destroy_window(_conn, _win);
         xcb_flush(_conn);
