@@ -2,6 +2,7 @@
 module wayland.server.eventloop;
 
 import wayland.native.server;
+import wayland.native.util;
 import wayland.util;
 
 class WlEventLoop : Native!wl_event_loop
