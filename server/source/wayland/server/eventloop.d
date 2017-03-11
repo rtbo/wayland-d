@@ -14,14 +14,16 @@ class WlEventLoop : Native!wl_event_loop
     alias SignalDg = int delegate (int sigNum);
     alias IdleDg = void delegate ();
 
-
+    private wl_listener _destroyListener;
     private DestroyDg _onDestroy;
 
     this (wl_event_loop* native)
     {
         _native = native;
+        wl_list_init(&_destroyListener.link);
+        _destroyListener.notify = &eventLoopDestroy;
+        wl_event_loop_add_destroy_listener(native, &_destroyListener);
         ObjectCache.set(native, this);
-        wl_event_loop_add_destroy_listener(native, &evLoopDestroyListener);
     }
 
     this()
@@ -32,7 +34,6 @@ class WlEventLoop : Native!wl_event_loop
     void destroy()
     {
         wl_event_loop_destroy(_native);
-        assert(!ObjectCache.get(native));
     }
 
     @property void destroyListener(DestroyDg dg)
@@ -166,7 +167,7 @@ private extern(C) nothrow
     {
         nothrowFnWrapper!({
             auto el = cast(WlEventLoop)ObjectCache.get(data);
-            assert(el);
+            assert(el, "eventLoopDestroy: could not get event loop from cache");
             if (el._onDestroy) el._onDestroy(el);
             ObjectCache.remove(data);
         });
@@ -203,12 +204,4 @@ private extern(C) nothrow
             src.dg();
         });
     }
-
-    __gshared wl_listener evLoopDestroyListener;
-}
-
-
-shared static this()
-{
-    evLoopDestroyListener.notify = &eventLoopDestroy;
 }

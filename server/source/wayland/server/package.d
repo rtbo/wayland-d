@@ -6,17 +6,6 @@ public import wayland.server.core;
 public import wayland.server.protocol;
 public import wayland.server.eventloop;
 
-
-// placed here to avoid cyclic dependencies
-shared static this()
-{
-    displayDestroyListener.notify = &displayDestroy;
-    clientCreatedListener.notify = &clientCreated;
-    clientDestroyListener.notify = &clientDestroy;
-    resourceCreatedListener.notify = &resourceCreated;
-    resourceDestroyListener.notify = &resourceDestroy;
-}
-
 version(WlDynamic)
 {
     import wayland.native.server;

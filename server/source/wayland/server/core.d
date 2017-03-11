@@ -8,6 +8,7 @@ import wayland.native.util;
 import wayland.util;
 
 import std.string;
+import std.stdio;
 import std.exception : enforce;
 import core.sys.posix.sys.types;
 
@@ -43,8 +44,12 @@ class WlDisplayBase : Native!wl_display
 
     alias DestroyDg = void delegate();
     alias ClientCreatedDg = void delegate(WlClient);
+    alias ClientDestroyDg = void delegate(WlClient);
 
-    // one loop per display, so no need to use an object store
+    private wl_listener _destroyListener;
+    private wl_listener _clientCreatedListener;
+
+    // one loop per display, so no need to use the object store
     private WlEventLoop _loop;
 
     private DestroyDg _onDestroy;
@@ -60,24 +65,24 @@ class WlDisplayBase : Native!wl_display
 
         ObjectCache.set(natDpy, dpy);
 
-        wl_display_add_destroy_listener(natDpy, &displayDestroyListener);
-        wl_display_add_client_created_listener(natDpy, &clientCreatedListener);
-
         return dpy;
     }
 
     protected this (wl_display* native)
     {
         _native = native;
+        wl_list_init(&_destroyListener.link);
+        _destroyListener.notify = &displayDestroy;
+        wl_display_add_destroy_listener(native, &_destroyListener);
+
+        wl_list_init(&_clientCreatedListener.link);
+        _clientCreatedListener.notify = &clientCreated;
+        wl_display_add_client_created_listener(native, &_clientCreatedListener);
     }
 
     void destroy()
     {
         wl_display_destroy(native);
-        assert(!ObjectCache.get(native));
-        _native = null;
-        _onDestroy = null;
-        _onClientCreated = null;
     }
 
     @property void onDestroy(DestroyDg dg)
@@ -153,26 +158,6 @@ class WlDisplayBase : Native!wl_display
     {
         return _clients;
     }
-
-    private void registerNewClient(wl_client* natCl)
-    {
-        auto cl = new WlClient(natCl);
-        ObjectCache.set(natCl, cl);
-        _clients ~= cl;
-        if (_onClientCreated) _onClientCreated(cl);
-    }
-
-    private void unregisterClient(wl_client* natCl)
-    {
-        import std.algorithm : remove;
-        WlClient cl = cast(WlClient)ObjectCache.get(natCl);
-        assert(cl, "could not retrieve client from obj cache");
-        if (cl._onDestroy) cl._onDestroy(cl);
-        _clients = _clients.remove!(c => c is cl);
-        cl._onDestroy = null;
-        cl._native = null;
-        ObjectCache.remove(natCl);
-    }
 }
 
 
@@ -188,7 +173,6 @@ class WlGlobal : Native!wl_global
     void destroy()
     {
         wl_global_destroy(_native);
-        _native = null;
     }
 }
 
@@ -207,24 +191,38 @@ class WlClient : Native!wl_client
     alias DestroyDg = void delegate(WlClient);
     alias ResourceCreatedDg = void delegate(WlResource);
 
-    DestroyDg _onDestroy;
-    ResourceCreatedDg _onResourceCreated;
-    WlResource[] _resources;
+    private wl_listener _destroyListener;
+    private wl_listener _resourceCreatedListener;
+
+    private DestroyDg _onDestroy;
+    private ResourceCreatedDg _onResourceCreated;
+    private WlResource[] _resources;
 
     this (wl_client* native)
     {
         _native = native;
-        ObjectCache.set(native, this);
-        wl_client_add_destroy_listener(native, &clientDestroyListener);
-        wl_client_add_resource_created_listener(native, &resourceCreatedListener);
+        wl_list_init(&_destroyListener.link);
+        _destroyListener.notify = &clientDestroy;
+        wl_client_add_destroy_listener(native, &_destroyListener);
+
+        wl_list_init(&_resourceCreatedListener.link);
+        _resourceCreatedListener.notify = &resourceCreated;
+        wl_client_add_resource_created_listener(native, &_resourceCreatedListener);
     }
 
     void destroy()
     {
         wl_client_destroy(native);
-        _onDestroy = null;
-        _onResourceCreated = null;
-        _native = null;
+    }
+
+    @property void onDestroy(DestroyDg dg)
+    {
+        _onDestroy = dg;
+    }
+
+    @property void onResourceCreated(ResourceCreatedDg dg)
+    {
+        _onResourceCreated = dg;
     }
 
     void flush()
@@ -249,7 +247,8 @@ class WlClient : Native!wl_client
         auto natRes = wl_client_get_object(native, id);
         if (!natRes) return null;
         auto res = cast(WlResource)ObjectCache.get(natRes);
-        return res ? res : new WlResource(natRes);
+        assert(res);
+        return res;
     }
 
     void postNoMemory()
@@ -257,31 +256,18 @@ class WlClient : Native!wl_client
         wl_client_post_no_memory(native);
     }
 
-    @property WlDisplayBase display()
+    @property WlDisplay display()
     {
         auto natDpy = wl_client_get_display(native);
         assert(natDpy);
-        return enforce(cast(WlDisplayBase)ObjectCache.get(natDpy));
+        auto dpy = cast(WlDisplay)ObjectCache.get(natDpy);
+        assert(dpy);
+        return dpy;
     }
 
-    private void registerNewResource(wl_resource* natRes)
+    @property WlResource[] resources()
     {
-        auto res = new WlResource(natRes);
-        ObjectCache.set(natRes, res);
-        _resources ~= res;
-        if (_onResourceCreated) _onResourceCreated(res);
-    }
-
-    private void unregisterResource(wl_resource* natRes)
-    {
-        import std.algorithm : remove;
-        WlResource res = cast(WlResource)ObjectCache.get(natRes);
-        assert(res, "could not retrieve resource from obj cache");
-        if (res._onDestroy) res._onDestroy(res);
-        _resources = _resources.remove!(r => r is res);
-        res._onDestroy = null;
-        res._native = null;
-        ObjectCache.remove(natRes);
+        return _resources;
     }
 }
 
@@ -290,12 +276,16 @@ class WlResource : Native!wl_resource
     mixin nativeImpl!wl_resource;
 
     alias DestroyDg = void delegate(WlResource);
-    DestroyDg _onDestroy;
+
+    private wl_listener _destroyListener;
+    private DestroyDg _onDestroy;
 
     this (wl_resource* native)
     {
         _native = native;
-        wl_resource_add_destroy_listener(native, &resourceDestroyListener);
+        wl_list_init(&_destroyListener.link);
+        _destroyListener.notify = &resourceDestroy;
+        wl_resource_add_destroy_listener(native, &_destroyListener);
     }
 
     void destroy()
@@ -312,7 +302,9 @@ class WlResource : Native!wl_resource
     {
         auto natCl = wl_resource_get_client(native);
         assert(natCl);
-        return enforce(cast(WlClient)ObjectCache.get(natCl));
+        auto cl = cast(WlClient)ObjectCache.get(natCl);
+        assert(cl);
+        return cl;
     }
 
     @property int ver()
@@ -326,13 +318,13 @@ class WlResource : Native!wl_resource
     }
 }
 
-package extern(C) nothrow
+private extern(C) nothrow
 {
     void displayDestroy(wl_listener*, void* data)
     {
         nothrowFnWrapper!({
             auto dpy = cast(WlDisplayBase)ObjectCache.get(data);
-            assert(dpy);
+            assert(dpy, "displayDestroy: could not get display from cache");
             if (dpy._onDestroy) dpy._onDestroy();
             ObjectCache.remove(data);
         });
@@ -344,8 +336,12 @@ package extern(C) nothrow
             auto natCl = cast(wl_client*)data;
             auto natDpy = wl_client_get_display(natCl);
             auto dpy = cast(WlDisplayBase)ObjectCache.get(natDpy);
-            assert(dpy, "could not retrieve display from obj cache");
-            dpy.registerNewClient(natCl);
+            assert(dpy, "clientCreated: could not get display from cache");
+
+            auto cl = new WlClient(natCl);
+            ObjectCache.set(natCl, cl);
+            dpy._clients ~= cl;
+            if (dpy._onClientCreated) dpy._onClientCreated(cl);
         });
     }
 
@@ -355,8 +351,19 @@ package extern(C) nothrow
             auto natCl = cast(wl_client*)data;
             auto natDpy = wl_client_get_display(natCl);
             auto dpy = cast(WlDisplayBase)ObjectCache.get(natDpy);
-            assert(dpy, "could not retrieve display from obj cache");
-            dpy.unregisterClient(natCl);
+            assert(dpy, "clientDestroy: could not get display from cache");
+            WlClient cl = cast(WlClient)ObjectCache.get(natCl);
+            assert(cl, "clientDestroy: could not get client from cache");
+
+            foreach(res; cl.resources)
+            {
+                destroyRes(res);
+            }
+
+            import std.algorithm : remove;
+            if (cl._onDestroy) cl._onDestroy(cl);
+            dpy._clients = dpy._clients.remove!(c => c is cl);
+            ObjectCache.remove(natCl);
         });
     }
 
@@ -366,8 +373,12 @@ package extern(C) nothrow
             auto natRes = cast(wl_resource*)data;
             auto natCl = wl_resource_get_client(natRes);
             auto cl = cast(WlClient)ObjectCache.get(natCl);
-            assert(cl, "could not retrieve client from obj cache");
-            cl.registerNewResource(natRes);
+            assert(cl, "resourceCreated: could not get client from cache");
+
+            auto res = new WlResource(natRes);
+            ObjectCache.set(natRes, res);
+            cl._resources ~= res;
+            if (cl._onResourceCreated) cl._onResourceCreated(res);
         });
     }
 
@@ -376,17 +387,26 @@ package extern(C) nothrow
         nothrowFnWrapper!({
             auto natRes = cast(wl_resource*)data;
             auto natCl = wl_resource_get_client(natRes);
+            auto res = cast(WlResource)ObjectCache.get(natRes);
+            if (!res) return;
+
+            destroyRes(res);
+
             auto cl = cast(WlClient)ObjectCache.get(natCl);
-            assert(cl, "could not retrieve client from obj cache");
-            cl.unregisterResource(natRes);
+            if (cl)
+            {
+                import std.algorithm : remove;
+                cl._resources = cl._resources.remove!(r => r is res);
+            }
         });
     }
-
-    // initialization in package.d to avoid cyclic dependencies
-    __gshared wl_listener displayDestroyListener;
-    __gshared wl_listener clientCreatedListener;
-    __gshared wl_listener clientDestroyListener;
-    __gshared wl_listener resourceCreatedListener;
-    __gshared wl_listener resourceDestroyListener;
 }
 
+private
+{
+    void destroyRes(WlResource res)
+    {
+        if (res._onDestroy) res._onDestroy(res);
+        ObjectCache.remove(res.native);
+    }
+}
