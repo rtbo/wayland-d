@@ -22,7 +22,7 @@ class WlEventLoop : Native!wl_event_loop
     {
         _native = native;
         wl_list_init(&_destroyListener.link);
-        _destroyListener.notify = &eventLoopDestroy;
+        _destroyListener.notify = &wl_d_eventloop_destroy;
         wl_event_loop_add_destroy_listener(native, &_destroyListener);
         ObjectCache.set(native, this);
     }
@@ -106,7 +106,7 @@ class WlFdEventSource : WlEventSource
     {
         this.dg = dg;
         super(wl_event_loop_add_fd(
-            nativeLoop, fd, mask, &eventLoopFdFunc, cast(void*)this
+            nativeLoop, fd, mask, &wl_d_eventloop_fd, cast(void*)this
         ));
     }
 
@@ -124,7 +124,7 @@ class WlTimerEventSource : WlEventSource
     {
         this.dg = dg;
         super(wl_event_loop_add_timer(
-            nativeLoop, &eventLoopTimerFunc, cast(void*)this
+            nativeLoop, &wl_d_eventloop_timer, cast(void*)this
         ));
     }
 
@@ -142,7 +142,7 @@ class WlSignalEventSource : WlEventSource
     {
         this.dg = dg;
         super(wl_event_loop_add_signal(
-            nativeLoop, signalNum, &eventLoopSignalFunc, cast(void*)this
+            nativeLoop, signalNum, &wl_d_eventloop_signal, cast(void*)this
         ));
     }
 }
@@ -155,7 +155,7 @@ class WlIdleEventSource : WlEventSource
     {
         this.dg = dg;
         super(wl_event_loop_add_idle(
-            nativeLoop, &eventLoopIdleFunc, cast(void*)this
+            nativeLoop, &wl_d_eventloop_idle, cast(void*)this
         ));
     }
 }
@@ -164,17 +164,17 @@ class WlIdleEventSource : WlEventSource
 private extern(C) nothrow
 {
 
-    void eventLoopDestroy(wl_listener*, void* data)
+    void wl_d_eventloop_destroy(wl_listener*, void* data)
     {
         nothrowFnWrapper!({
             auto el = cast(WlEventLoop)ObjectCache.get(data);
-            assert(el, "eventLoopDestroy: could not get event loop from cache");
+            assert(el, "wl_d_eventloop_destroy: could not get event loop from cache");
             if (el._onDestroy) el._onDestroy(el);
             ObjectCache.remove(data);
         });
     }
 
-    int eventLoopFdFunc(int fd, uint mask, void* data)
+    int wl_d_eventloop_fd(int fd, uint mask, void* data)
     {
         return nothrowFnWrapper!({
             auto src = cast(WlFdEventSource)data;
@@ -182,7 +182,7 @@ private extern(C) nothrow
         });
     }
 
-    int eventLoopTimerFunc(void* data)
+    int wl_d_eventloop_timer(void* data)
     {
         return nothrowFnWrapper!({
             auto src = cast(WlTimerEventSource)data;
@@ -190,7 +190,7 @@ private extern(C) nothrow
         });
     }
 
-    int eventLoopSignalFunc(int sigNumber, void* data)
+    int wl_d_eventloop_signal(int sigNumber, void* data)
     {
         return nothrowFnWrapper!({
             auto src = cast(WlSignalEventSource)data;
@@ -198,7 +198,7 @@ private extern(C) nothrow
         });
     }
 
-    void eventLoopIdleFunc(void* data)
+    void wl_d_eventloop_idle(void* data)
     {
         nothrowFnWrapper!({
             auto src = cast(WlIdleEventSource)data;

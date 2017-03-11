@@ -72,11 +72,11 @@ class WlDisplayBase : Native!wl_display
     {
         _native = native;
         wl_list_init(&_destroyListener.link);
-        _destroyListener.notify = &displayDestroy;
+        _destroyListener.notify = &wl_d_display_destroy;
         wl_display_add_destroy_listener(native, &_destroyListener);
 
         wl_list_init(&_clientCreatedListener.link);
-        _clientCreatedListener.notify = &clientCreated;
+        _clientCreatedListener.notify = &wl_d_client_created;
         wl_display_add_client_created_listener(native, &_clientCreatedListener);
     }
 
@@ -202,11 +202,11 @@ class WlClient : Native!wl_client
     {
         _native = native;
         wl_list_init(&_destroyListener.link);
-        _destroyListener.notify = &clientDestroy;
+        _destroyListener.notify = &wl_d_client_destroy;
         wl_client_add_destroy_listener(native, &_destroyListener);
 
         wl_list_init(&_resourceCreatedListener.link);
-        _resourceCreatedListener.notify = &resourceCreated;
+        _resourceCreatedListener.notify = &wl_d_resource_created;
         wl_client_add_resource_created_listener(native, &_resourceCreatedListener);
     }
 
@@ -284,7 +284,7 @@ class WlResource : Native!wl_resource
     {
         _native = native;
         wl_list_init(&_destroyListener.link);
-        _destroyListener.notify = &resourceDestroy;
+        _destroyListener.notify = &wl_d_resource_destroy;
         wl_resource_add_destroy_listener(native, &_destroyListener);
     }
 
@@ -320,23 +320,23 @@ class WlResource : Native!wl_resource
 
 private extern(C) nothrow
 {
-    void displayDestroy(wl_listener*, void* data)
+    void wl_d_display_destroy(wl_listener*, void* data)
     {
         nothrowFnWrapper!({
             auto dpy = cast(WlDisplayBase)ObjectCache.get(data);
-            assert(dpy, "displayDestroy: could not get display from cache");
+            assert(dpy, "wl_d_display_destroy: could not get display from cache");
             if (dpy._onDestroy) dpy._onDestroy();
             ObjectCache.remove(data);
         });
     }
 
-    void clientCreated(wl_listener*, void* data)
+    void wl_d_client_created(wl_listener*, void* data)
     {
         nothrowFnWrapper!({
             auto natCl = cast(wl_client*)data;
             auto natDpy = wl_client_get_display(natCl);
             auto dpy = cast(WlDisplayBase)ObjectCache.get(natDpy);
-            assert(dpy, "clientCreated: could not get display from cache");
+            assert(dpy, "wl_d_client_created: could not get display from cache");
 
             auto cl = new WlClient(natCl);
             ObjectCache.set(natCl, cl);
@@ -345,15 +345,15 @@ private extern(C) nothrow
         });
     }
 
-    void clientDestroy(wl_listener*, void* data)
+    void wl_d_client_destroy(wl_listener*, void* data)
     {
         nothrowFnWrapper!({
             auto natCl = cast(wl_client*)data;
             auto natDpy = wl_client_get_display(natCl);
             auto dpy = cast(WlDisplayBase)ObjectCache.get(natDpy);
-            assert(dpy, "clientDestroy: could not get display from cache");
+            assert(dpy, "wl_d_client_destroy: could not get display from cache");
             WlClient cl = cast(WlClient)ObjectCache.get(natCl);
-            assert(cl, "clientDestroy: could not get client from cache");
+            assert(cl, "wl_d_client_destroy: could not get client from cache");
 
             foreach(res; cl.resources)
             {
@@ -367,13 +367,13 @@ private extern(C) nothrow
         });
     }
 
-    void resourceCreated(wl_listener*, void* data)
+    void wl_d_resource_created(wl_listener*, void* data)
     {
         nothrowFnWrapper!({
             auto natRes = cast(wl_resource*)data;
             auto natCl = wl_resource_get_client(natRes);
             auto cl = cast(WlClient)ObjectCache.get(natCl);
-            assert(cl, "resourceCreated: could not get client from cache");
+            assert(cl, "wl_d_resource_created: could not get client from cache");
 
             auto res = new WlResource(natRes);
             ObjectCache.set(natRes, res);
@@ -382,7 +382,7 @@ private extern(C) nothrow
         });
     }
 
-    void resourceDestroy(wl_listener*, void* data)
+    void wl_d_resource_destroy(wl_listener*, void* data)
     {
         nothrowFnWrapper!({
             auto natRes = cast(wl_resource*)data;
