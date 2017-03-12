@@ -21,10 +21,11 @@ class WlEventLoop : Native!wl_event_loop
     this (wl_event_loop* native)
     {
         _native = native;
+        ObjectCache.set(native, this);
+
         wl_list_init(&_destroyListener.link);
         _destroyListener.notify = &wl_d_eventloop_destroy;
         wl_event_loop_add_destroy_listener(native, &_destroyListener);
-        ObjectCache.set(native, this);
     }
 
     this()
