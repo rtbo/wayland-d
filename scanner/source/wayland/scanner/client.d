@@ -84,21 +84,15 @@ class ClientArg : Arg
     {
         final switch(type) {
             case ArgType.Int:
-                return "int";
             case ArgType.UInt:
-                return "uint";
             case ArgType.Fixed:
-                return "wl_fixed_t";
             case ArgType.String:
-                return "const(char)*";
+            case ArgType.NewId:
+            case ArgType.Array:
+            case ArgType.Fd:
+                return Arg.cType;
             case ArgType.Object:
                 return "wl_proxy*";
-            case ArgType.NewId:
-                return "uint";
-            case ArgType.Array:
-                return "wl_array*";
-            case ArgType.Fd:
-                return "int";
         }
     }
 
@@ -106,22 +100,36 @@ class ClientArg : Arg
     {
         final switch(type) {
             case ArgType.Int:
-                return "int";
             case ArgType.UInt:
-                return "uint";
             case ArgType.Fixed:
-                return "wl_fixed_t";
             case ArgType.String:
-                return "const(char)*";
+            case ArgType.NewId:
+            case ArgType.Array:
+            case ArgType.Fd:
+                return Arg.cType;
             case ArgType.Object:
                 if (iface.empty) return "void*";
                 else return "wl_proxy*";
+        }
+    }
+
+    override string dCastExpr(string parentIface) const
+    {
+        final switch(type) {
+            case ArgType.Int:
+            case ArgType.UInt:
+            case ArgType.Fixed:
+            case ArgType.String:
             case ArgType.NewId:
-                return "uint";
             case ArgType.Array:
-                return "wl_array*";
             case ArgType.Fd:
-                return "int";
+                return Arg.dCastExpr(parentIface);
+            case ArgType.Object:
+                auto expr = format("WlProxy.get(%s)", paramName);
+                if (iface)
+                    return format("cast(%s)%s", ifaceDName(iface), expr);
+                else
+                    return expr;
         }
     }
 }

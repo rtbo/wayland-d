@@ -306,6 +306,28 @@ abstract class Arg
         }
     }
 
+    @property string cType() const
+    {
+        final switch(type) {
+            case ArgType.Int:
+                return "int";
+            case ArgType.UInt:
+                return "uint";
+            case ArgType.Fixed:
+                return "wl_fixed_t";
+            case ArgType.String:
+                return "const(char)*";
+            case ArgType.Object:
+                assert(false, "unimplemented");
+            case ArgType.NewId:
+                return "uint";
+            case ArgType.Array:
+                return "wl_array*";
+            case ArgType.Fd:
+                return "int";
+        }
+    }
+
 
     @property string paramName() const
     {
@@ -352,11 +374,7 @@ abstract class Arg
             case ArgType.String:
                 return format("fromStringz(%s).idup", paramName);
             case ArgType.Object:
-                auto expr = format("WlProxy.get(%s)", paramName);
-                if (iface)
-                    return format("cast(%s)%s", ifaceDName(iface), expr);
-                else
-                    return expr;
+                assert(false, "unimplemented");
             case ArgType.NewId:
                 return paramName;
             case ArgType.Array:
