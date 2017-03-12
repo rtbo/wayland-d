@@ -3,6 +3,7 @@ module wayland.server.core;
 
 import wayland.server.protocol : WlDisplay;
 import wayland.server.eventloop;
+import wayland.server.listener;
 import wayland.native.server;
 import wayland.native.util;
 import wayland.util;
@@ -42,18 +43,17 @@ class WlDisplayBase : Native!wl_display
 {
     mixin nativeImpl!(wl_display);
 
-    alias DestroyDg = void delegate();
-    alias ClientCreatedDg = void delegate(WlClient);
-    alias ClientDestroyDg = void delegate(WlClient);
+    alias DestroySig = Signal!();
+    alias ClientCreatedSig = Signal!(WlClient);
 
     private wl_listener _destroyListener;
+    private DestroySig _destroySig;
+
     private wl_listener _clientCreatedListener;
+    private ClientCreatedSig _clientCreatedSig;
 
     // one loop per display, so no need to use the object store
     private WlEventLoop _loop;
-
-    private DestroyDg _onDestroy;
-    private ClientCreatedDg _onClientCreated;
 
     private WlClient[] _clients;
 
@@ -71,6 +71,7 @@ class WlDisplayBase : Native!wl_display
     protected this (wl_display* native)
     {
         _native = native;
+
         wl_list_init(&_destroyListener.link);
         _destroyListener.notify = &wl_d_display_destroy;
         wl_display_add_destroy_listener(native, &_destroyListener);
@@ -85,14 +86,26 @@ class WlDisplayBase : Native!wl_display
         wl_display_destroy(native);
     }
 
-    @property void onDestroy(DestroyDg dg)
+    private DestroySig destroySig()
     {
-        _onDestroy = dg;
+        if (!_destroySig) _destroySig = new DestroySig();
+        return _destroySig;
     }
 
-    @property void onClientCreated(ClientCreatedDg dg)
+    private ClientCreatedSig clientCreatedSig()
     {
-        _onClientCreated = dg;
+        if (!_clientCreatedSig) _clientCreatedSig = new ClientCreatedSig();
+        return _clientCreatedSig;
+    }
+
+    void addDestroyListener(DestroySig.Listener listener)
+    {
+        destroySig.add(listener);
+    }
+
+    void addClientCreatedListener(ClientCreatedSig.Listener listener)
+    {
+        clientCreatedSig.add(listener);
     }
 
     @property WlEventLoop eventLoop()
@@ -141,11 +154,6 @@ class WlDisplayBase : Native!wl_display
         return wl_display_next_serial(native);
     }
 
-    @property void destroyListener(DestroyDg dg)
-    {
-        _onDestroy = dg;
-    }
-
     WlClient createClient(int fd)
     {
         auto natCl = wl_client_create(native, fd);
@@ -188,14 +196,15 @@ class WlClient : Native!wl_client
 {
     mixin nativeImpl!wl_client;
 
-    alias DestroyDg = void delegate(WlClient);
-    alias ResourceCreatedDg = void delegate(WlResource);
+    alias DestroySig = Signal!(WlClient);
+    alias ResourceCreatedSig = Signal!(WlResource);
 
     private wl_listener _destroyListener;
-    private wl_listener _resourceCreatedListener;
+    private DestroySig _destroySig;
 
-    private DestroyDg _onDestroy;
-    private ResourceCreatedDg _onResourceCreated;
+    private wl_listener _resourceCreatedListener;
+    private ResourceCreatedSig _resourceCreatedSig;
+
     private WlResource[] _resources;
 
     this (wl_client* native)
@@ -215,14 +224,26 @@ class WlClient : Native!wl_client
         wl_client_destroy(native);
     }
 
-    @property void onDestroy(DestroyDg dg)
+    private DestroySig destroySig()
     {
-        _onDestroy = dg;
+        if (!_destroySig) _destroySig = new DestroySig();
+        return _destroySig;
     }
 
-    @property void onResourceCreated(ResourceCreatedDg dg)
+    private ResourceCreatedSig resourceCreatedSig()
     {
-        _onResourceCreated = dg;
+        if (!_resourceCreatedSig) _resourceCreatedSig = new ResourceCreatedSig();
+        return _resourceCreatedSig;
+    }
+
+    void addDestroyListener(DestroySig.Listener listener)
+    {
+        destroySig.add(listener);
+    }
+
+    void addResourceCreatedListener(ResourceCreatedSig.Listener listener)
+    {
+        resourceCreatedSig.add(listener);
     }
 
     void flush()
@@ -275,10 +296,10 @@ class WlResource : Native!wl_resource
 {
     mixin nativeImpl!wl_resource;
 
-    alias DestroyDg = void delegate(WlResource);
+    alias DestroySig = Signal!(WlResource);
 
     private wl_listener _destroyListener;
-    private DestroyDg _onDestroy;
+    private DestroySig _destroySig;
 
     this (wl_resource* native)
     {
@@ -291,6 +312,17 @@ class WlResource : Native!wl_resource
     void destroy()
     {
         wl_resource_destroy(native);
+    }
+
+    private DestroySig destroySig()
+    {
+        if (!_destroySig) _destroySig = new DestroySig();
+        return _destroySig;
+    }
+
+    void addDestroyListener(DestroySig.Listener listener)
+    {
+        destroySig.add(listener);
     }
 
     @property uint id()
@@ -325,7 +357,7 @@ private extern(C) nothrow
         nothrowFnWrapper!({
             auto dpy = cast(WlDisplayBase)ObjectCache.get(data);
             assert(dpy, "wl_d_display_destroy: could not get display from cache");
-            if (dpy._onDestroy) dpy._onDestroy();
+            if (dpy._destroySig) dpy._destroySig.emit();
             ObjectCache.remove(data);
         });
     }
@@ -341,7 +373,7 @@ private extern(C) nothrow
             auto cl = new WlClient(natCl);
             ObjectCache.set(natCl, cl);
             dpy._clients ~= cl;
-            if (dpy._onClientCreated) dpy._onClientCreated(cl);
+            if (dpy._clientCreatedSig) dpy._clientCreatedSig.emit(cl);
         });
     }
 
@@ -361,7 +393,7 @@ private extern(C) nothrow
             }
 
             import std.algorithm : remove;
-            if (cl._onDestroy) cl._onDestroy(cl);
+            if (cl._destroySig) cl._destroySig.emit(cl);
             dpy._clients = dpy._clients.remove!(c => c is cl);
             ObjectCache.remove(natCl);
         });
@@ -378,7 +410,7 @@ private extern(C) nothrow
             auto res = new WlResource(natRes);
             ObjectCache.set(natRes, res);
             cl._resources ~= res;
-            if (cl._onResourceCreated) cl._onResourceCreated(res);
+            if (cl._resourceCreatedSig) cl._resourceCreatedSig.emit(res);
         });
     }
 
@@ -406,7 +438,7 @@ private
 {
     void destroyRes(WlResource res)
     {
-        if (res._onDestroy) res._onDestroy(res);
+        if (res._destroySig) res._destroySig.emit(res);
         ObjectCache.remove(res.native);
     }
 }

@@ -19,12 +19,6 @@ class Client
 		this.comp = comp;
 		this.cl = cl;
 	}
-
-	void onDestroy(WlClient cl)
-	{
-		writeln("Client.onDestroy");
-		comp._clients = comp._clients.remove!(c => c is this);
-	}
 }
 
 class Compositor : CompositorBackendInterface
@@ -91,15 +85,24 @@ private:
 		});
 		timer.update(1000);
 
-		_display.onClientCreated = (WlClient cl)
-		{
-			writeln("onClientCreated");
-			_clients ~= new Client(this, cl);
-		};
+		_display.addClientCreatedListener(&addClient);
 
 		_display.run();
 
 		return 0;
+	}
+
+	void addClient(WlClient cl)
+	{
+		writeln("addClient");
+		_clients ~= new Client(this, cl);
+		cl.addDestroyListener(&removeClient);
+	}
+
+	void removeClient(WlClient cl)
+	{
+		writeln("removeClient");
+		_clients = _clients.remove!(c => c is cl);
 	}
 
 	void onCompBind(WlClient cl, uint ver, uint id)
