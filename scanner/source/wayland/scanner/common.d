@@ -30,6 +30,41 @@ interface Factory
 Factory fact;
 
 
+
+void writeMultilineParenthesis(SourceFile sf, in string before,
+            in string[] args, in string after)
+{
+    immutable indent = ' '.repeat(before.length+1).array();
+    sf.write("%s(", before);
+    foreach (i, a; args)
+    {
+        if (i != 0)
+        {
+            sf.writeln(",");
+            sf.write(indent);
+        }
+        sf.write(a);
+    }
+    sf.writeln(")%s", after);
+}
+
+void writeDelegateAlias(SourceFile sf, string name, string ret, string[] rtArgs)
+{
+    immutable fstLine = format("alias %s = %s delegate(", name, ret);
+    immutable indent = ' '.repeat(fstLine.length).array();
+    sf.write(fstLine);
+    foreach(i, rta; rtArgs)
+    {
+        if (i != 0)
+        {
+            sf.writeln(",");
+            sf.write(indent);
+        }
+        sf.write(rta);
+    }
+    sf.writeln(");");
+}
+
 void writeFnSig(SourceFile sf, string ret, string name, string[] rtArgs,
                 string[] ctArgs=[], string constraint="")
 {
@@ -53,6 +88,44 @@ void writeFnSig(SourceFile sf, string ret, string name, string[] rtArgs,
     }
 }
 
+void writeFnExpr(SourceFile sf, string stmt, string[] exprs)
+{
+    sf.writeln("%s(", stmt);
+    sf.indentedBlock!({
+        immutable ic = sf.indentChars;
+        int width = ic;
+        foreach (i, e; exprs)
+        {
+            if (i != 0)
+            {
+                sf.write(",");
+                width += 1;
+            }
+            width += e.length;
+            if (width > wrapWidth)
+            {
+                sf.writeln();
+                width = ic;
+            }
+            else if (i != 0)
+            {
+                sf.write(" ");
+                width += 1;
+            }
+            sf.write(e);
+        }
+    });
+    sf.writeln();
+    sf.writeln(");");
+}
+
+void writeFnPointer(SourceFile sf, string name, string ret, string[] args)
+{
+    writeMultilineParenthesis(
+        sf, format("%s function", ret), args, format(" %s;", name)
+    );
+}
+
 void writeFnBody(SourceFile sf, string[] preStmts, string mainStmt,
                 string[] exprs, string[] postStmt)
 {
@@ -61,33 +134,7 @@ void writeFnBody(SourceFile sf, string[] preStmts, string mainStmt,
         {
             sf.writeln(ps);
         }
-        sf.writeln("%s(", mainStmt);
-        sf.indentedBlock!({
-            immutable ic = sf.indentChars;
-            int width = ic;
-            foreach (i, e; exprs)
-            {
-                if (i != 0)
-                {
-                    sf.write(",");
-                    width += 1;
-                }
-                width += e.length;
-                if (width > wrapWidth)
-                {
-                    sf.writeln();
-                    width = ic;
-                }
-                else if (i != 0)
-                {
-                    sf.write(" ");
-                    width += 1;
-                }
-                sf.write(e);
-            }
-        });
-        sf.writeln();
-        sf.writeln(");");
+        writeFnExpr(sf, mainStmt, exprs);
         foreach (ps; postStmt)
         {
             sf.writeln(ps);
