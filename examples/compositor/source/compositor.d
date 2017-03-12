@@ -8,28 +8,16 @@ import std.typecons : Flag;
 import std.stdio;
 import std.process;
 
-class Client
-{
-	Compositor comp;
-	WlClient cl;
-	WlResource[] res;
-
-	this(Compositor comp, WlClient cl)
-	{
-		this.comp = comp;
-		this.cl = cl;
-	}
-}
 
 class Compositor : CompositorBackendInterface
 {
 	private {
 		Backend _backend;
-		Client[] _clients;
 
 		WlDisplay _display;
 		WlEventLoop _loop;
 
+		WlClient[] _clients;
 		WlCompositor.Global wlComp;
 	}
 
@@ -79,7 +67,7 @@ private:
 			spawnProcess([
 				"wayland-tracker", "simple",
 				"-x", "protocol/wayland.xml",
-				"--", "examples/list_registry/wayland-d_list_registry"
+				"--", "examples/comp_client/wayland-d_comp_client"
 			]);
 			return 1;
 		});
@@ -95,7 +83,7 @@ private:
 	void addClient(WlClient cl)
 	{
 		writeln("addClient");
-		_clients ~= new Client(this, cl);
+		_clients ~= cl;
 		cl.addDestroyListener(&removeClient);
 	}
 
@@ -107,7 +95,18 @@ private:
 
 	void onCompBind(WlClient cl, uint ver, uint id)
 	{
-		writeln("comp bind");
+		writeln("onCompBind");
+		auto res = new WlCompositor.Resource(cl, ver, id);
+		res.onCreateSurface = &compCreateSurface;
+		res.onCreateRegion = &compCreateRegion;
+	}
+
+	void compCreateSurface(WlClient cl, WlResource res, uint id) {
+		writeln("compCreateSurface");
+	}
+
+	void compCreateRegion(WlClient cl, WlResource res, uint id) {
+
 	}
 }
 
