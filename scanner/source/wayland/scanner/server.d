@@ -138,7 +138,7 @@ class ServerInterface : Interface
 
     @property string onBindFuncName()
     {
-        return format("onBind%s", titleCamelName(name));
+        return format("wl_d_on_bind_%s", name);
     }
 
     override void writeCode(SourceFile sf)
@@ -269,7 +269,7 @@ class ServerInterface : Interface
             sf.indentedBlock!({
                 sf.writeln("auto g = cast(%s.Global)data;", dName);
                 sf.writeln("auto cl = cast(WlClient)ObjectCache.get(natCl);");
-                sf.writeln("assert(g && cl);");
+                sf.writeln(`assert(g && cl, "%s: could not get global or client from cache");`, onBindFuncName);
                 sf.writeln("g._onBindDg(cl, ver, id);");
             });
             sf.writeln("});");

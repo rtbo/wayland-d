@@ -326,6 +326,11 @@ class ClientInterface : Interface
         return events.map!(r => cast(ClientMessage)r);
     }
 
+    @property string globalNativeListenerName()
+    {
+        return format("wl_d_%s_listener", name);
+    }
+
     override void writeCode(SourceFile sf)
     {
         description.writeCode(sf);
@@ -346,8 +351,8 @@ class ClientInterface : Interface
                 if (writeEvents)
                 {
                     sf.writeln(
-                        "wl_proxy_add_listener(proxy, cast(void_func_t*)&the%sListener, null);",
-                        titleCamelName(name)
+                        "wl_proxy_add_listener(proxy, cast(void_func_t*)&%s, null);",
+                        globalNativeListenerName
                     );
                 }
             });
@@ -460,7 +465,7 @@ class ClientInterface : Interface
         });
 
         sf.writeln();
-        immutable fstLine = format("__gshared the%sListener = %s_listener (", titleCamelName(name), name);
+        immutable fstLine = format("__gshared %s = %s_listener (", globalNativeListenerName, name);
         immutable indent = ' '.repeat(fstLine.length).array();
         foreach (i, ev; events)
         {
