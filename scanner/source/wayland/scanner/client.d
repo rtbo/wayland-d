@@ -166,15 +166,14 @@ class ClientMessage : Message
     void writeEventDgAlias(SourceFile sf)
     {
         sf.writeln("/// Event delegate signature of %s.%s.", ifaceDName(ifaceName), dHandlerName);
-        immutable fstLine = format("alias %s = void delegate (", dEvDgType);
-        immutable indent = ' '.repeat(fstLine.length).array();
-        string eol = args.length ? "," : ");";
-        sf.writeln("%s%s %s%s", fstLine, ifaceDName(ifaceName), camelName(ifaceName), eol);
-        foreach(i, arg; args)
+        string[] rtArgs = [
+            format("%s %s", ifaceDName(ifaceName), camelName(ifaceName))
+        ];
+        foreach(a; args)
         {
-            eol = i == args.length-1 ? ");" : ",";
-            sf.writeln("%s%s %s%s", indent, arg.dType, arg.paramName, eol);
+            rtArgs ~= format("%s %s", a.dType, a.paramName);
         }
+        writeDelegateAlias(sf, dEvDgType, "void", rtArgs);
     }
 
     void writeEventDgAccessor(SourceFile sf)
