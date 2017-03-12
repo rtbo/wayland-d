@@ -95,9 +95,52 @@ class ServerMessage : Message
         return args.map!(a => cast(ServerArg)a);
     }
 
+    @property string reqDgAliasName()
+    {
+        return "On" ~ titleCamelName(name) ~ "Dg";
+    }
+
+    @property string reqDgMemberName()
+    {
+        return "_on" ~ titleCamelName(name) ~ "Dg";
+    }
+
+    @property string reqDgPropName()
+    {
+        return "on" ~ titleCamelName(name);
+    }
+
     @property string sendName()
     {
         return "send" ~ titleCamelName(name);
+    }
+
+    @property string privRqListenerStubName()
+    {
+        return format("wl_d_on_%s_%s", ifaceName, name);
+    }
+
+    void writeReqDelegateAlias(SourceFile sf)
+    {
+        string[] rtArgs = [
+            "WlClient cl", "WlResource res"
+        ];
+        foreach (a; args) {
+            if (a.type == ArgType.Object)
+            {
+                rtArgs ~= format("WlResource %s", a.paramName);
+            }
+            else if (a.type == ArgType.NewId && !a.iface.length)
+            {
+                rtArgs ~= [
+                    "string iface", "uint ver", format("uint %s", a.paramName)
+                ];
+            }
+            else {
+                rtArgs ~= format("%s %s", a.dType, a.paramName);
+            }
+        }
+        writeDelegateAlias(sf, reqDgAliasName, "void", rtArgs);
     }
 
     void writeSendResMethod(SourceFile sf)
@@ -115,6 +158,72 @@ class ServerMessage : Message
         }
         sf.writeFnSig("void", sendName, rtArgs);
         sf.writeFnBody([], "wl_resource_post_event", exprs, []);
+    }
+
+    void writePrivRqListenerStub(SourceFile sf)
+    {
+        string[] rtArgs = [
+            "wl_client* natCl", "wl_resource* natRes",
+        ];
+        string[] exprs = [
+            "cast(WlClient)ObjectCache.get(natCl)", "_res",
+        ];
+        foreach (a; args) {
+            if (a.type == ArgType.Object)
+            {
+                rtArgs ~= format("wl_resource* %s", a.paramName);
+                exprs ~= format("cast(WlResource)ObjectCache.get(%s)", a.paramName);
+            }
+            else if (a.type == ArgType.NewId && !a.iface.length)
+            {
+                rtArgs ~= [
+                    "const(char)* iface", "uint ver", format("uint %s", a.paramName)
+                ];
+                exprs ~= [
+                    "fromStringz(iface).idup", "ver", a.paramName
+                ];
+            }
+            else {
+                rtArgs ~= format("%s %s", a.cType, a.paramName);
+                exprs ~= a.dCastExpr(ifaceName);
+            }
+        }
+        writeFnSig(sf, "void", privRqListenerStubName, rtArgs);
+        sf.bracedBlock!({
+            sf.writeln("nothrowFnWrapper!({");
+            sf.indentedBlock!({
+                sf.writeln("auto _res = cast(%s.Resource)ObjectCache.get(natRes);", ifaceDName(ifaceName));
+                sf.writeln("if (_res.%s) {", reqDgMemberName);
+                sf.indentedBlock!({
+                    writeFnExpr(sf, format("_res.%s", reqDgMemberName), exprs);
+                });
+                sf.writeln("}");
+            });
+            sf.writeln("});");
+        });
+    }
+
+    void writePrivStubSig(SourceFile sf)
+    {
+        string[] rtArgs = [
+            "wl_client* natCl", "wl_resource* natRes",
+        ];
+        foreach (a; args) {
+            if (a.type == ArgType.Object)
+            {
+                rtArgs ~= format("wl_resource* %s", a.paramName);
+            }
+            else if (a.type == ArgType.NewId && !a.iface.length)
+            {
+                rtArgs ~= [
+                    "const(char)* iface", "uint ver", format("uint %s", a.paramName)
+                ];
+            }
+            else {
+                rtArgs ~= format("%s %s", a.cType, a.paramName);
+            }
+        }
+        writeFnPointer(sf, name, "void", rtArgs);
     }
 }
 
@@ -139,6 +248,16 @@ class ServerInterface : Interface
     @property string onBindFuncName()
     {
         return format("wl_d_on_bind_%s", name);
+    }
+
+    @property string listenerStubsStructName()
+    {
+        return format("%s_listener_stub_aggregate", name);
+    }
+
+    @property string listenerStubsSymbol()
+    {
+        return format("wl_d_%s_listener_stubs", name);
     }
 
     override void writeCode(SourceFile sf)
@@ -233,6 +352,7 @@ class ServerInterface : Interface
             sf.writeln("/// Creates a Global object.");
             sf.writeln("this(WlDisplay dpy, uint ver, OnBindDg onBindDg)");
             sf.bracedBlock!({
+                sf.writeln("_onBindDg = onBindDg;");
                 sf.writeln("super(wl_global_create(");
                 sf.indentedBlock!({
                     sf.writeln("dpy.native, iface.native, ver, cast(void*)this, &%s", onBindFuncName);
@@ -249,14 +369,49 @@ class ServerInterface : Interface
         sf.writeln();
         sf.writeln("static class Resource : WlResource");
         sf.bracedBlock!({
+            if (requests.length) sf.writeln();
+            foreach(rq; svRequests)
+            {
+                rq.writeReqDelegateAlias(sf);
+            }
             sf.writeln("this(wl_resource* native)");
             sf.bracedBlock!({
                 sf.writeln("super(native);");
             });
+            sf.writeln();
+            sf.writeln("this(WlClient cl, uint ver, uint id)");
+            sf.bracedBlock!({
+                sf.writeln("auto native = wl_resource_create(cl.native, iface.native, ver, id);");
+                if (requests.length) {
+                    sf.writeln("wl_resource_set_implementation(native, &%s, cast(void*)this, null);", listenerStubsSymbol);
+                }
+                sf.writeln("this(native);");
+            });
+
+            foreach(rq; svRequests)
+            {
+                sf.writeln();
+                sf.writeln("@property %s %s()", rq.reqDgAliasName, rq.reqDgPropName);
+                sf.bracedBlock!({
+                    sf.writeln("return %s;", rq.reqDgMemberName);
+                });
+                sf.writeln();
+                sf.writeln("@property void %s(%s dg)", rq.reqDgPropName, rq.reqDgAliasName);
+                sf.bracedBlock!({
+                    sf.writeln("%s = dg;", rq.reqDgMemberName);
+                });
+            }
+
             foreach(ev; svEvents)
             {
                 sf.writeln();
                 ev.writeSendResMethod(sf);
+            }
+
+            if (requests.length) sf.writeln();
+            foreach(rq; svRequests)
+            {
+                sf.writeln("private %s %s;", rq.reqDgAliasName, rq.reqDgMemberName);
             }
         });
     }
@@ -274,6 +429,33 @@ class ServerInterface : Interface
             });
             sf.writeln("});");
         });
+    }
+
+    void writePrivRqListenerStubs(SourceFile sf)
+    {
+        sf.writeln("// %s listener stubs", name);
+        foreach(rq; svRequests)
+        {
+            sf.writeln();
+            rq.writePrivRqListenerStub(sf);
+        }
+
+        sf.writeln();
+        sf.writeln("struct %s", listenerStubsStructName);
+        sf.bracedBlock!({
+            foreach (rq; svRequests) {
+                rq.writePrivStubSig(sf);
+            }
+        });
+
+        sf.writeln();
+        sf.writeln("__gshared %s = %s(", listenerStubsSymbol, listenerStubsStructName);
+        sf.indentedBlock!({
+            foreach(rq; svRequests) {
+                sf.writeln("&%s,", rq.privRqListenerStubName);
+            }
+        });
+        sf.writeln(");");
     }
 }
 
@@ -294,6 +476,11 @@ class ServerProtocol : Protocol
         return svIfaces.filter!(i => i.isGlobal);
     }
 
+    @property auto svIfacesWithRq()
+    {
+        return svIfaces.filter!(i => i.requests.length > 0);
+    }
+
     override void writeCode(SourceFile sf, in Options opt)
     {
         writeHeader(sf, opt);
@@ -302,7 +489,7 @@ class ServerProtocol : Protocol
         sf.writeln("import wayland.native.server;");
         sf.writeln("import wayland.native.util;");
         sf.writeln("import wayland.util;");
-        sf.writeln("import std.string : toStringz;");
+        sf.writeln("import std.string : toStringz, fromStringz;");
         sf.writeln();
 
         foreach(iface; ifaces)
@@ -320,10 +507,19 @@ class ServerProtocol : Protocol
 
         sf.writeln("extern(C) nothrow");
         sf.bracedBlock!({
-            foreach(i, iface; enumerate(svGlobalIfaces.filter!(i=>i.name != "wl_display")))
+            bool needNL;
+            foreach(iface; svGlobalIfaces.filter!(i=>i.name != "wl_display"))
             {
-                if (i != 0) sf.writeln();
+                if (needNL) sf.writeln();
+                else needNL = true;
                 iface.writePrivBindStub(sf);
+            }
+
+            foreach(iface; svIfacesWithRq.filter!(i=>i.name != "wl_display"))
+            {
+                if (needNL) sf.writeln();
+                else needNL = true;
+                iface.writePrivRqListenerStubs(sf);
             }
         });
     }
@@ -353,6 +549,16 @@ class ServerProtocol : Protocol
                 });
             });
         }
+
         writeNativeIfaces(sf);
+
+        sf.writeln("shared static this()");
+        sf.bracedBlock!({
+            foreach (iface; ifaces)
+            {
+                sf.writeln("WlResourceFactory.registerInterface(%sIface);",
+                        camelName(iface.name));
+            }
+        });
     }
 }
