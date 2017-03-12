@@ -123,12 +123,17 @@ class ServerMessage : Message
     void writeReqDelegateAlias(SourceFile sf)
     {
         string[] rtArgs = [
-            "WlClient cl", "WlResource res"
+            "WlClient cl", "Resource res"
         ];
         foreach (a; args) {
             if (a.type == ArgType.Object)
             {
-                rtArgs ~= format("WlResource %s", a.paramName);
+                if (a.iface.length) {
+                    rtArgs ~= format("%s.Resource %s", ifaceDName(a.iface), a.paramName);
+                }
+                else {
+                    rtArgs ~= format("WlResource %s", a.paramName);
+                }
             }
             else if (a.type == ArgType.NewId && !a.iface.length)
             {
@@ -171,8 +176,11 @@ class ServerMessage : Message
         foreach (a; args) {
             if (a.type == ArgType.Object)
             {
+                string castType = a.iface.length ?
+                        format("%s.Resource", ifaceDName(a.iface)) :
+                        "WlResource";
                 rtArgs ~= format("wl_resource* %s", a.paramName);
-                exprs ~= format("cast(WlResource)ObjectCache.get(%s)", a.paramName);
+                exprs ~= format("cast(%s)ObjectCache.get(%s)", castType, a.paramName);
             }
             else if (a.type == ArgType.NewId && !a.iface.length)
             {
@@ -369,11 +377,11 @@ class ServerInterface : Interface
         sf.writeln();
         sf.writeln("static class Resource : WlResource");
         sf.bracedBlock!({
-            if (requests.length) sf.writeln();
             foreach(rq; svRequests)
             {
                 rq.writeReqDelegateAlias(sf);
             }
+            if (requests.length) sf.writeln();
             sf.writeln("this(wl_resource* native)");
             sf.bracedBlock!({
                 sf.writeln("super(native);");
@@ -395,7 +403,6 @@ class ServerInterface : Interface
                 sf.bracedBlock!({
                     sf.writeln("return %s;", rq.reqDgMemberName);
                 });
-                sf.writeln();
                 sf.writeln("@property void %s(%s dg)", rq.reqDgPropName, rq.reqDgAliasName);
                 sf.bracedBlock!({
                     sf.writeln("%s = dg;", rq.reqDgMemberName);

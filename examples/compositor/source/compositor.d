@@ -101,12 +101,10 @@ private:
 		res.onCreateRegion = &compCreateRegion;
 	}
 
-	void compCreateSurface(WlClient cl, WlResource res, uint id) {
-		writeln("compCreateSurface");
+	void compCreateSurface(WlClient cl, WlCompositor.Resource res, uint id) {
 	}
 
-	void compCreateRegion(WlClient cl, WlResource res, uint id) {
-
+	void compCreateRegion(WlClient cl, WlCompositor.Resource res, uint id) {
 	}
 }
 
