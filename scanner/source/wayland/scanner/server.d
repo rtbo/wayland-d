@@ -399,10 +399,12 @@ class ServerInterface : Interface
             foreach(rq; svRequests)
             {
                 sf.writeln();
+                rq.description.writeCode(sf);
                 sf.writeln("@property %s %s()", rq.reqDgAliasName, rq.reqDgPropName);
                 sf.bracedBlock!({
                     sf.writeln("return %s;", rq.reqDgMemberName);
                 });
+                if (!rq.description.empty) sf.writeln("/// ditto");
                 sf.writeln("@property void %s(%s dg)", rq.reqDgPropName, rq.reqDgAliasName);
                 sf.bracedBlock!({
                     sf.writeln("%s = dg;", rq.reqDgMemberName);
