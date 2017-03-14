@@ -6,10 +6,16 @@ D bindings to wayland.
 ![dub downloads](https://img.shields.io/dub/dt/wayland-d.svg)
 
 Have several components:
- - scanner: XML protocol parser and code generator. It generates high level objects.
- - client: client protocol and libwayland-client native API wrapped into higher level objects.
- - egl: allow use of wayland-egl (see [this example](https://github.com/rtbo/wayland-d/blob/master/examples/simple_egl/source/simple_egl.d)).
- - server: unimplemented.
+ - __*Scanner*__: XML protocol parser and code generator. It generates high level objects.
+   - support for client and server side code generation.
+   - support foreign protocols (such as `xdg-shell`. See the [simple-egl example](https://github.com/rtbo/wayland-d/blob/master/examples/simple_egl/source/simple_egl.d))
+
+ - __*Client*__: client protocol and libwayland-client native API wrapped into higher level objects.
+
+ - __*EGL*__: allow use of wayland-egl (see [this example](https://github.com/rtbo/wayland-d/blob/master/examples/simple_egl/source/simple_egl.d)).
+
+ - __*Server*__: in progress, see the [server branch](https://github.com/rtbo/wayland-d/tree/server).
+
 
 ## Client usage
 
@@ -43,7 +49,15 @@ void main()
 
 ## Playground
 
-You can try one of the examples if you are under a wayland compositor:
+You can run the examples if you are under a wayland compositor:
 ```sh
+dub run wayland-d:list_registry
+```
+For some of the examples, this only works if you `cd` first to the project root
+directory:
+
+```sh
+git clone https://github.com/rtbo/wayland-d.git
+cd wayland-d
 dub run wayland-d:hello
 ```
