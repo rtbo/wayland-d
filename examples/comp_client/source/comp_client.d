@@ -27,9 +27,9 @@ int main()
 	version(WlDynamic) { wlClientDynLib.load(); }
 
 	auto hello = new Hello;
-	// hello.makeMemPool(cast(immutable(ubyte)[])import("images.bin"));
-	hello.createSurface();
-	// hello.setupBuffers();
+	hello.makeMemPool(cast(immutable(ubyte)[])import("images.bin"));
+	// hello.createSurface();
+	hello.setupBuffers();
 	hello.loop();
 	hello.cleanUp();
 	return 0;
@@ -135,8 +135,8 @@ class Hello
 			WlShm.Format.argb8888
 		);
 
-		surf.attach(winBuf, 0, 0);
-		surf.commit();
+		//surf.attach(winBuf, 0, 0);
+		//surf.commit();
 	}
 
 	void pointerEnter(WlPointer pointer, uint serial, WlSurface surface,
@@ -168,18 +168,18 @@ class Hello
 
 	void cleanUp()
 	{
-		// cursorBuf.destroy();
-		cursorSurf.destroy();
-		// winBuf.destroy();
+		cursorBuf.destroy();
+		// cursorSurf.destroy();
+		winBuf.destroy();
 		// shSurf.destroy();
-		surf.destroy();
-		// pool.destroy();
-		// munmap(poolMem, poolSize);
-		// close(poolFd);
+		// surf.destroy();
+		pool.destroy();
+		munmap(poolMem, poolSize);
+		close(poolFd);
 		// pointer.destroy();
 		// seat.destroy();
 		// shell.destroy();
-		// shm.destroy();
+		shm.destroy();
 		compositor.destroy();
 		display.disconnect();
 	}
