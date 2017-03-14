@@ -56,6 +56,8 @@ private:
 		wlComp = new WlCompositor.Global(_display, 4, &onCompBind);
 		scope(exit) wlComp.destroy();
 
+		_display.initShm();
+
 		_backend = Backend.create();
 		_backend.initialize(new BackendConfig(false, 640, 480), this);
 		scope(exit) _backend.terminate();

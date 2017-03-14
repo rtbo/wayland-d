@@ -1,7 +1,7 @@
 // Copyright © 2017 Rémi Thebault
 module wayland.server.core;
 
-import wayland.server.protocol : WlDisplay;
+import wayland.server.protocol : WlDisplay, WlShm;
 import wayland.server.eventloop;
 import wayland.server.listener;
 import wayland.native.server;
@@ -175,6 +175,16 @@ class WlDisplayBase : Native!wl_display
     @property WlClient[] clients()
     {
         return _clients;
+    }
+
+    void initShm()
+    {
+        wl_display_init_shm(native);
+    }
+
+    void addShmFormat(WlShm.Format format)
+    {
+        wl_display_add_shm_format(native, cast(uint)format);
     }
 }
 
