@@ -9,7 +9,7 @@ import std.stdio;
 import std.process;
 
 
-class Compositor : CompositorBackendInterface
+class Compositor : WlCompositor, CompositorBackendInterface
 {
 	private {
 		Backend _backend;
@@ -18,8 +18,32 @@ class Compositor : CompositorBackendInterface
 		WlEventLoop _loop;
 
 		WlClient[] _clients;
-		WlCompositor.Global wlComp;
 	}
+
+	this(WlDisplay display)
+	{
+		this._display = display;
+		super(display, 4);
+	}
+
+	// WlCompositor
+
+	override void bind(WlClient cl, uint ver, uint id)
+	{
+		writeln("onCompBind");
+		auto res = new Resource(cl, ver, id);
+		res.onCreateSurface = &createSurface;
+		res.onCreateRegion = &createRegion;
+	}
+
+	private void createSurface(WlClient cl, Resource res, uint id) {
+	}
+
+	private void createRegion(WlClient cl, Resource res, uint id) {
+	}
+
+
+	// CompositorBackendInterface
 
 	override @property WlDisplay display()
 	{
@@ -43,19 +67,10 @@ class Compositor : CompositorBackendInterface
     override void eventKey(int key, Flag!"down" down)
 	{}
 
-
 private:
 
 	int run()
 	{
-		_display = WlDisplay.create();
-		scope(exit) _display.destroy();
-
-		environment["WAYLAND_DISPLAY"] = _display.addSocketAuto();
-
-		wlComp = new WlCompositor.Global(_display, 4, &onCompBind);
-		scope(exit) wlComp.destroy();
-
 		_display.initShm();
 
 		_backend = Backend.create();
@@ -63,7 +78,6 @@ private:
 		scope(exit) _backend.terminate();
 
 		auto output = _backend.createOutput();
-		output.enable();
 
 		auto timer = _display.eventLoop.addTimer({
 			spawnProcess([
@@ -94,24 +108,17 @@ private:
 		writeln("removeClient");
 		_clients = _clients.remove!(c => c is cl);
 	}
-
-	void onCompBind(WlClient cl, uint ver, uint id)
-	{
-		writeln("onCompBind");
-		auto res = new WlCompositor.Resource(cl, ver, id);
-		res.onCreateSurface = &compCreateSurface;
-		res.onCreateRegion = &compCreateRegion;
-	}
-
-	void compCreateSurface(WlClient cl, WlCompositor.Resource res, uint id) {
-	}
-
-	void compCreateRegion(WlClient cl, WlCompositor.Resource res, uint id) {
-	}
 }
 
 int main()
 {
-	auto comp = new Compositor;
+	auto display = WlDisplay.create();
+	scope(exit) display.destroy();
+
+	environment["WAYLAND_DISPLAY"] = display.addSocketAuto();
+
+	auto comp = new Compositor(display);
+	scope(exit) comp.destroy();
+
 	return comp.run();
 }

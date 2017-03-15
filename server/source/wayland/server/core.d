@@ -30,27 +30,27 @@ immutable abstract class WlServerInterface : WlInterface
         super(native);
     }
 
-    abstract WlResource makeResource(wl_resource* resource) immutable;
+    // abstract WlResource makeResource(wl_resource* resource) immutable;
 }
 
-class WlResourceFactory
-{
-    import std.typecons : Rebindable;
+// class WlResourceFactory
+// {
+//     import std.typecons : Rebindable;
 
-    private __gshared Rebindable!(immutable(WlServerInterface))[string] _ifaces;
+//     private __gshared Rebindable!(immutable(WlServerInterface))[string] _ifaces;
 
-    static void registerInterface(immutable(WlServerInterface) iface)
-    {
-        _ifaces[iface.name] = iface;
-    }
+//     static void registerInterface(immutable(WlServerInterface) iface)
+//     {
+//         _ifaces[iface.name] = iface;
+//     }
 
-    static WlResource makeResource(wl_resource* res)
-    {
-        auto cls = fromStringz(wl_resource_get_class(res));
-        auto iface = cls in _ifaces;
-        return iface ? iface.makeResource(res) : null;
-    }
-}
+//     static WlResource makeResource(wl_resource* res)
+//     {
+//         auto cls = fromStringz(wl_resource_get_class(res));
+//         auto iface = cls in _ifaces;
+//         return iface ? iface.makeResource(res) : null;
+//     }
+// }
 
 
 class WlDisplayBase : Native!wl_display
@@ -189,7 +189,7 @@ class WlDisplayBase : Native!wl_display
 }
 
 
-class WlGlobal : Native!wl_global
+abstract class WlGlobal : Native!wl_global
 {
     mixin nativeImpl!wl_global;
 
@@ -203,6 +203,8 @@ class WlGlobal : Native!wl_global
     {
         wl_global_destroy(_native);
     }
+
+    abstract void bind(WlClient cl, uint ver, uint id);
 }
 
 

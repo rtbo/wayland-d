@@ -37,6 +37,18 @@ class ServerFactory : Factory
 }
 
 
+// Server bindings implementation notes:
+// There are two kind of server objects: globals and resources.
+//
+// Globals inherit WlGlobal and are to be created by the compositor at startup.
+// Each created global is announced by the registry to the client.
+// Globals also create a `Global.Resource` object for each connected client.
+// They are created by the `WlGlobal.bind` method and represent a kind of connection
+// between the client and server global object.
+//
+// Resources inherit WlResource are created by the global objects upon clients requests.
+
+
 
 class ServerArg : Arg
 {
@@ -59,9 +71,16 @@ class ServerArg : Arg
                 return Arg.dType;
             case ArgType.Object:
                 if (iface.length)
-                    return ifaceDName(iface) ~ ".Resource";
-                else
-                    return "WlResource";
+                {
+                    auto i = iface in ifaceMap;
+                    if (i && i.isGlobal) {
+                        return ifaceDName(iface) ~ ".Resource";
+                    }
+                    else if (i && !i.isGlobal) {
+                        return ifaceDName(iface);
+                    }
+                }
+                return "WlResource";
         }
     }
 
@@ -110,6 +129,11 @@ class ServerMessage : Message
         return "on" ~ titleCamelName(name);
     }
 
+    @property string reqAbstractMethodName()
+    {
+        return camelName(name);
+    }
+
     @property string sendName()
     {
         return "send" ~ titleCamelName(name);
@@ -120,22 +144,14 @@ class ServerMessage : Message
         return format("wl_d_on_%s_%s", ifaceName, name);
     }
 
-    void writeReqDelegateAlias(SourceFile sf)
+    @property string[] reqRtArgs()
     {
+        immutable resType = (cast(ServerInterface)ifaceMap[ifaceName]).selfResType(Yes.local);
         string[] rtArgs = [
-            "WlClient cl", "Resource res"
+            "WlClient cl", format("%s res", resType)
         ];
         foreach (a; args) {
-            if (a.type == ArgType.Object)
-            {
-                if (a.iface.length) {
-                    rtArgs ~= format("%s.Resource %s", ifaceDName(a.iface), a.paramName);
-                }
-                else {
-                    rtArgs ~= format("WlResource %s", a.paramName);
-                }
-            }
-            else if (a.type == ArgType.NewId && !a.iface.length)
+            if (a.type == ArgType.NewId && !a.iface.length)
             {
                 rtArgs ~= [
                     "string iface", "uint ver", format("uint %s", a.paramName)
@@ -145,8 +161,20 @@ class ServerMessage : Message
                 rtArgs ~= format("%s %s", a.dType, a.paramName);
             }
         }
-        writeDelegateAlias(sf, reqDgAliasName, "void", rtArgs);
+        return rtArgs;
     }
+
+    void writeReqDelegateAlias(SourceFile sf)
+    {
+        writeDelegateAlias(sf, reqDgAliasName, "void", reqRtArgs);
+    }
+
+    void writeReqAbstractMethod(SourceFile sf)
+    {
+        writeFnSigRaw(sf, "abstract protected", "void", reqAbstractMethodName, reqRtArgs);
+        sf.writeln(";");
+    }
+
 
     void writeSendResMethod(SourceFile sf)
     {
@@ -165,7 +193,7 @@ class ServerMessage : Message
         sf.writeFnBody([], "wl_resource_post_event", exprs, []);
     }
 
-    void writePrivRqListenerStub(SourceFile sf)
+    void writePrivRqListenerStub(SourceFile sf, bool isGlobal)
     {
         string[] rtArgs = [
             "wl_client* natCl", "wl_resource* natRes",
@@ -176,11 +204,8 @@ class ServerMessage : Message
         foreach (a; args) {
             if (a.type == ArgType.Object)
             {
-                string castType = a.iface.length ?
-                        format("%s.Resource", ifaceDName(a.iface)) :
-                        "WlResource";
                 rtArgs ~= format("wl_resource* %s", a.paramName);
-                exprs ~= format("cast(%s)ObjectCache.get(%s)", castType, a.paramName);
+                exprs ~= format("cast(%s)ObjectCache.get(%s)", a.dType, a.paramName);
             }
             else if (a.type == ArgType.NewId && !a.iface.length)
             {
@@ -200,12 +225,20 @@ class ServerMessage : Message
         sf.bracedBlock!({
             sf.writeln("nothrowFnWrapper!({");
             sf.indentedBlock!({
-                sf.writeln("auto _res = cast(%s.Resource)ObjectCache.get(natRes);", ifaceDName(ifaceName));
-                sf.writeln("if (_res.%s) {", reqDgMemberName);
-                sf.indentedBlock!({
-                    writeFnExpr(sf, format("_res.%s", reqDgMemberName), exprs);
-                });
-                sf.writeln("}");
+                immutable resType = (cast(ServerInterface)ifaceMap[ifaceName]).selfResType(No.local);
+                sf.writeln("auto _res = cast(%s)ObjectCache.get(natRes);", resType);
+                if (isGlobal)
+                {
+                    sf.writeln("if (_res.%s) {", reqDgMemberName);
+                    sf.indentedBlock!({
+                        writeFnExpr(sf, format("_res.%s", reqDgMemberName), exprs);
+                    });
+                    sf.writeln("}");
+                }
+                else
+                {
+                    writeFnExpr(sf, format("_res.%s", reqAbstractMethodName), exprs);
+                }
             });
             sf.writeln("});");
         });
@@ -253,9 +286,19 @@ class ServerInterface : Interface
         return events.map!(m => cast(ServerMessage)m);
     }
 
-    @property string onBindFuncName()
+    string selfResType(Flag!"local" local)
     {
-        return format("wl_d_on_bind_%s", name);
+        if (local) {
+            return isGlobal ? "Resource" : dName;
+        }
+        else {
+            return dName ~ (isGlobal ? ".Resource" : "");
+        }
+    }
+
+    @property string bindFuncName()
+    {
+        return format("wl_d_bind_%s", name);
     }
 
     @property string listenerStubsStructName()
@@ -271,7 +314,8 @@ class ServerInterface : Interface
     override void writeCode(SourceFile sf)
     {
         description.writeCode(sf);
-        immutable heritage = name == "wl_display" ? " : WlDisplayBase" : "";
+        immutable heritage = name == "wl_display" ? " : WlDisplayBase" :
+                (isGlobal ? " : WlGlobal" : " : WlResource");
         sf.writeln("class %s%s", dName, heritage);
         sf.bracedBlock!({
             if (name == "wl_display")
@@ -292,16 +336,18 @@ class ServerInterface : Interface
                 sf.writeln();
                 en.writeCode(sf);
             }
-            if (enums.length) sf.writeln();
 
             if (name != "wl_display")
             {
                 if (isGlobal)
                 {
                     writeGlobalCode(sf);
-                    sf.writeln();
+                    writeResourceCodeForGlobal(sf);
                 }
-                writeResourceCode(sf);
+                else
+                {
+                    writeResourceCode(sf);
+                }
             }
         });
     }
@@ -352,27 +398,17 @@ class ServerInterface : Interface
     void writeGlobalCode(SourceFile sf)
     {
         sf.writeln();
-        sf.writeln("static class Global : WlGlobal");
+        sf.writeln("protected this(WlDisplay dpy, uint ver)");
         sf.bracedBlock!({
-            sf.writeln("/// Bind delegate signature.");
-            sf.writeln("alias OnBindDg = void delegate(WlClient cl, uint ver, uint id);");
-            sf.writeln();
-            sf.writeln("/// Creates a Global object.");
-            sf.writeln("this(WlDisplay dpy, uint ver, OnBindDg onBindDg)");
-            sf.bracedBlock!({
-                sf.writeln("_onBindDg = onBindDg;");
-                sf.writeln("super(wl_global_create(");
-                sf.indentedBlock!({
-                    sf.writeln("dpy.native, iface.native, ver, cast(void*)this, &%s", onBindFuncName);
-                });
-                sf.writeln("));");
+            sf.writeln("super(wl_global_create(");
+            sf.indentedBlock!({
+                sf.writeln("dpy.native, iface.native, ver, cast(void*)this, &%s", bindFuncName);
             });
-            sf.writeln();
-            sf.writeln("private OnBindDg _onBindDg;");
+            sf.writeln("));");
         });
     }
 
-    void writeResourceCode(SourceFile sf)
+    void writeResourceCodeForGlobal(SourceFile sf)
     {
         sf.writeln();
         sf.writeln("static class Resource : WlResource");
@@ -425,16 +461,40 @@ class ServerInterface : Interface
         });
     }
 
+    void writeResourceCode(SourceFile sf)
+    {
+        sf.writeln();
+        sf.writeln("protected this(WlClient cl, uint ver, uint id)");
+        sf.bracedBlock!({
+            sf.writeln("auto native = wl_resource_create(cl.native, iface.native, ver, id);");
+            if (requests.length) {
+                sf.writeln("wl_resource_set_implementation(native, &%s, cast(void*)this, null);", listenerStubsSymbol);
+            }
+            sf.writeln("super(native);");
+        });
+        foreach(rq; svRequests)
+        {
+            sf.writeln();
+            rq.description.writeCode(sf);
+            rq.writeReqAbstractMethod(sf);
+        }
+        foreach(ev; svEvents)
+        {
+            sf.writeln();
+            ev.writeSendResMethod(sf);
+        }
+    }
+
     void writePrivBindStub(SourceFile sf)
     {
-        sf.writeln("void %s(wl_client* natCl, void* data, uint ver, uint id)", onBindFuncName);
+        sf.writeln("void %s(wl_client* natCl, void* data, uint ver, uint id)", bindFuncName);
         sf.bracedBlock!({
             sf.writeln("nothrowFnWrapper!({");
             sf.indentedBlock!({
-                sf.writeln("auto g = cast(%s.Global)data;", dName);
+                sf.writeln("auto g = cast(%s)data;", dName);
                 sf.writeln("auto cl = cast(WlClient)ObjectCache.get(natCl);");
-                sf.writeln(`assert(g && cl, "%s: could not get global or client from cache");`, onBindFuncName);
-                sf.writeln("g._onBindDg(cl, ver, id);");
+                sf.writeln(`assert(g && cl, "%s: could not get global or client from cache");`, bindFuncName);
+                sf.writeln("g.bind(cl, ver, id);");
             });
             sf.writeln("});");
         });
@@ -446,7 +506,7 @@ class ServerInterface : Interface
         foreach(rq; svRequests)
         {
             sf.writeln();
-            rq.writePrivRqListenerStub(sf);
+            rq.writePrivRqListenerStub(sf, isGlobal);
         }
 
         sf.writeln();
@@ -549,25 +609,25 @@ class ServerProtocol : Protocol
                 sf.bracedBlock!({
                     sf.writeln("super(native);");
                 });
-                sf.writeln("override WlResource makeResource(wl_resource* resource) immutable");
-                sf.bracedBlock!({
-                    if (iface.name == "wl_display")
-                        sf.writeln("assert(false, \"Display cannot have any resource!\");");
-                    else
-                        sf.writeln("return new %s.Resource(resource);", iface.dName);
-                });
+                // sf.writeln("override WlResource makeResource(wl_resource* resource) immutable");
+                // sf.bracedBlock!({
+                //     if (iface.name == "wl_display")
+                //         sf.writeln("assert(false, \"Display cannot have any resource!\");");
+                //     else
+                //         sf.writeln("return new %s.Resource(resource);", iface.dName);
+                // });
             });
         }
 
         writeNativeIfaces(sf);
 
-        sf.writeln("shared static this()");
-        sf.bracedBlock!({
-            foreach (iface; ifaces)
-            {
-                sf.writeln("WlResourceFactory.registerInterface(%sIface);",
-                        camelName(iface.name));
-            }
-        });
+        // sf.writeln("shared static this()");
+        // sf.bracedBlock!({
+        //     foreach (iface; ifaces)
+        //     {
+        //         sf.writeln("WlResourceFactory.registerInterface(%sIface);",
+        //                 camelName(iface.name));
+        //     }
+        // });
     }
 }

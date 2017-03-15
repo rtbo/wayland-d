@@ -30,6 +30,8 @@ interface Factory
 Factory fact;
 
 
+public Interface[string] ifaceMap;
+
 
 void writeMultilineParenthesis(SourceFile sf, in string before,
             in string[] args, in string after)
@@ -65,11 +67,12 @@ void writeDelegateAlias(SourceFile sf, string name, string ret, string[] rtArgs)
     sf.writeln(");");
 }
 
-void writeFnSig(SourceFile sf, string ret, string name, string[] rtArgs,
-                string[] ctArgs=[], string constraint="")
+void writeFnSigRaw(SourceFile sf, string qualifiers, string ret, string name,
+                string[] rtArgs, string[] ctArgs=[], string constraint="")
 {
     immutable ctSig = ctArgs.length ? format("!(%(%s, %))", ctArgs) : "";
-    immutable fstLine = format("%s %s%s(", ret, name, ctSig);
+    immutable qual = qualifiers.length ? format("%s ", qualifiers) : "";
+    immutable fstLine = format("%s%s %s%s(", qual, ret, name, ctSig);
     immutable indent = ' '.repeat(fstLine.length).array();
     sf.write(fstLine);
     foreach (i, rta; rtArgs)
@@ -81,11 +84,18 @@ void writeFnSig(SourceFile sf, string ret, string name, string[] rtArgs,
         }
         sf.write(rta);
     }
-    sf.writeln(")");
+    sf.write(")");
     if (constraint.length)
     {
-        sf.writeln("if (%s)", constraint);
+        sf.write("if (%s)", constraint);
     }
+}
+
+void writeFnSig(SourceFile sf, string ret, string name, string[] rtArgs,
+                string[] ctArgs=[], string constraint="")
+{
+    writeFnSigRaw(sf, "", ret, name, rtArgs, ctArgs, constraint);
+    sf.writeln();
 }
 
 void writeFnExpr(SourceFile sf, string stmt, string[] exprs)
@@ -653,6 +663,7 @@ abstract class Interface
         {
             enums ~= new Enum(enEl, name);
         }
+        ifaceMap[name] = this;
     }
 
     abstract void writeCode(SourceFile sf);

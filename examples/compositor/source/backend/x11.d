@@ -138,7 +138,7 @@ private:
     {
         import std.algorithm : remove;
         _outputs = _outputs.remove!(o => o is op);
-        op.disable();
+        op.destroy();
         if (!_outputs.length) comp.exit();
     }
 }
@@ -189,20 +189,7 @@ final class X11Output : Output
         _heightDPI = cast(int) (25.4 * _screen.height_in_pixels) / _screen.height_in_millimeters;
 
         assert(_fullscreen || _width*_height > 0);
-    }
 
-    override @property int width()
-    {
-        return _width;
-    }
-
-    override @property int height()
-    {
-        return _height;
-    }
-
-    override void enable()
-    {
         immutable uint mask = XCB_CW_EVENT_MASK;
         uint[2] values = [
             XCB_EVENT_MASK_EXPOSURE |
@@ -261,12 +248,21 @@ final class X11Output : Output
 		            XCB_ATOM_ATOM, 32, 1, &_atoms.wm_delete_window);
         xcb_map_window(_conn, _win);
         xcb_flush(_conn);
-        super.enable();
     }
 
-    override void disable()
+    override @property int width()
     {
-        super.disable();
+        return _width;
+    }
+
+    override @property int height()
+    {
+        return _height;
+    }
+
+    override void destroy()
+    {
+        super.destroy();
         xcb_unmap_window(_conn, _win);
         xcb_destroy_window(_conn, _win);
         xcb_flush(_conn);
