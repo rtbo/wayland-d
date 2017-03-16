@@ -71,10 +71,10 @@ class ServerArg : Arg
                 {
                     auto i = iface in ifaceMap;
                     if (i && i.isGlobal) {
-                        return ifaceDName(iface) ~ ".Resource";
+                        return i.dName ~ ".Resource";
                     }
                     else if (i && !i.isGlobal) {
-                        return ifaceDName(iface);
+                        return i.dName;
                     }
                 }
                 return "WlResource";
@@ -104,6 +104,11 @@ class ServerMessage : Message
     this (Element el, Interface iface)
     {
         super(el, iface);
+    }
+
+    @property ServerInterface svIface()
+    {
+        return cast(ServerInterface)iface;
     }
 
     @property auto svArgs()
@@ -143,7 +148,7 @@ class ServerMessage : Message
 
     @property string[] reqRtArgs()
     {
-        immutable resType = (cast(ServerInterface)ifaceMap[ifaceName]).selfResType(Yes.local);
+        immutable resType = svIface.selfResType(Yes.local);
         string[] rtArgs = [
             "WlClient cl", format("%s res", resType)
         ];
@@ -190,7 +195,7 @@ class ServerMessage : Message
         sf.writeFnBody([], "wl_resource_post_event", exprs, []);
     }
 
-    void writePrivRqListenerStub(SourceFile sf, bool isGlobal)
+    void writePrivRqListenerStub(SourceFile sf)
     {
         string[] rtArgs = [
             "wl_client* natCl", "wl_resource* natRes",
@@ -222,9 +227,9 @@ class ServerMessage : Message
         sf.bracedBlock!({
             sf.writeln("nothrowFnWrapper!({");
             sf.indentedBlock!({
-                immutable resType = (cast(ServerInterface)ifaceMap[ifaceName]).selfResType(No.local);
+                immutable resType = svIface.selfResType(No.local);
                 sf.writeln("auto _res = cast(%s)ObjectCache.get(natRes);", resType);
-                if (isGlobal)
+                if (iface.isGlobal)
                 {
                     sf.writeln("if (_res.%s) {", reqDgMemberName);
                     sf.indentedBlock!({
@@ -503,7 +508,7 @@ class ServerInterface : Interface
         foreach(rq; svRequests)
         {
             sf.writeln();
-            rq.writePrivRqListenerStub(sf, isGlobal);
+            rq.writePrivRqListenerStub(sf);
         }
 
         sf.writeln();
