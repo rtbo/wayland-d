@@ -24,13 +24,13 @@ class ClientFactory : Factory
     {
         return new ClientProtocol(el);
     }
-    override Interface makeInterface(Element el, string protocolName)
+    override Interface makeInterface(Element el, Protocol protocol)
     {
-        return new ClientInterface(el, protocolName);
+        return new ClientInterface(el, protocol);
     }
-    override Message makeMessage(Element el, string ifaceName)
+    override Message makeMessage(Element el, Interface iface)
     {
-        return new ClientMessage(el, ifaceName);
+        return new ClientMessage(el, iface);
     }
     override Arg makeArg(Element el)
     {
@@ -137,9 +137,9 @@ class ClientArg : Arg
 
 class ClientMessage : Message
 {
-    this (Element el, string ifaceName)
+    this (Element el, Interface iface)
     {
-        super(el, ifaceName);
+        super(el, iface);
     }
 
     @property auto clArgs()
@@ -318,7 +318,7 @@ class ClientMessage : Message
 
 class ClientInterface : Interface
 {
-    this (Element el, string protocol)
+    this (Element el, Protocol protocol)
     {
         super(el, protocol);
     }
@@ -421,7 +421,7 @@ class ClientInterface : Interface
             {
                 sf.writeln(
                     "/// Version of %s protocol introducing %s.%s.",
-                    protocol, dName, msg.dMethodName
+                    protocol.name, dName, msg.dMethodName
                 );
                 sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
             }
@@ -433,7 +433,7 @@ class ClientInterface : Interface
             {
                 sf.writeln(
                     "/// %s protocol version introducing %s.%s.",
-                    protocol, dName, msg.dHandlerName
+                    protocol.name, dName, msg.dHandlerName
                 );
                 sf.writeln("enum %sSinceVersion = %d;", msg.dHandlerName, msg.since);
             }

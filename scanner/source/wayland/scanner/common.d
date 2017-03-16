@@ -22,8 +22,8 @@ import std.uni;
 interface Factory
 {
     Protocol makeProtocol(Element el);
-    Interface makeInterface(Element el, string protocolName);
-    Message makeMessage(Element el, string ifaceName);
+    Interface makeInterface(Element el, Protocol protocol);
+    Message makeMessage(Element el, Interface iface);
     Arg makeArg(Element el);
 }
 
@@ -458,7 +458,7 @@ abstract class Message
     }
 
     string name;
-    string ifaceName;
+    Interface iface;
     int since = 1;
     bool isDtor;
     Description description;
@@ -472,11 +472,11 @@ abstract class Message
     Arg reqRet;
     string reqRetStr;
 
-    this (Element el, string ifaceName)
+    this (Element el, Interface iface)
     {
         assert(el.tagName == "request" || el.tagName == "event");
+        this.iface = iface;
         name = el.getAttribute("name");
-        this.ifaceName = ifaceName;
         if (el.hasAttribute("since"))
         {
             since = el.getAttribute("since").to!int;
@@ -505,6 +505,10 @@ abstract class Message
         }
     }
 
+    @property string ifaceName()
+    {
+        return iface.name;
+    }
 
     @property Tuple!(Arg, string, ReqType) clientReqReturn()
     {
@@ -632,7 +636,7 @@ abstract class Message
 
 abstract class Interface
 {
-    string protocol;
+    Protocol protocol;
     string name;
     string ver;
     Description description;
@@ -644,7 +648,7 @@ abstract class Interface
     // protocal eventually set to false after all interfaces are parsed
     bool isGlobal = true;
 
-    this (Element el, string protocol)
+    this (Element el, Protocol protocol)
     {
         assert(el.tagName == "interface");
         this.protocol = protocol;
@@ -653,11 +657,11 @@ abstract class Interface
         description = new Description(el);
         foreach (rqEl; el.getElementsByTagName("request"))
         {
-            requests ~= fact.makeMessage(rqEl, name);
+            requests ~= fact.makeMessage(rqEl, this);
         }
         foreach (evEl; el.getElementsByTagName("event"))
         {
-            events ~= fact.makeMessage(evEl, name);
+            events ~= fact.makeMessage(evEl, this);
         }
         foreach (enEl; el.getElementsByTagName("enum"))
         {
@@ -743,7 +747,7 @@ abstract class Protocol
         Interface[string] ifaceMap;
         foreach (ifEl; el.getElementsByTagName("interface"))
         {
-            auto iface = fact.makeInterface(ifEl, name);
+            auto iface = fact.makeInterface(ifEl, this);
             ifaceMap[iface.name] = iface;
             ifaces ~= iface;
         }

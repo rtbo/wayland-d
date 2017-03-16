@@ -22,13 +22,13 @@ class ServerFactory : Factory
     {
         return new ServerProtocol(el);
     }
-    override Interface makeInterface(Element el, string protocolName)
+    override Interface makeInterface(Element el, Protocol protocol)
     {
-        return new ServerInterface(el, protocolName);
+        return new ServerInterface(el, protocol);
     }
-    override Message makeMessage(Element el, string ifaceName)
+    override Message makeMessage(Element el, Interface iface)
     {
-        return new ServerMessage(el, ifaceName);
+        return new ServerMessage(el, iface);
     }
     override Arg makeArg(Element el)
     {
@@ -42,12 +42,10 @@ class ServerFactory : Factory
 //
 // Globals inherit WlGlobal and are to be created by the compositor at startup.
 // Each created global is announced by the registry to the client.
-// Globals also create a `Global.Resource` object for each connected client.
-// They are created by the `WlGlobal.bind` method and represent a kind of connection
-// between the client and server global object.
+// Globals must also create a `[Global].Resource` object for each connected client
+// in the `bind` method.
 //
 // Resources inherit WlResource are created by the global objects upon clients requests.
-
 
 
 class ServerArg : Arg
@@ -56,7 +54,6 @@ class ServerArg : Arg
     {
         super(el);
     }
-
 
     override @property string dType() const
     {
@@ -104,9 +101,9 @@ class ServerArg : Arg
 
 class ServerMessage : Message
 {
-    this (Element el, string ifaceName)
+    this (Element el, Interface iface)
     {
-        super(el, ifaceName);
+        super(el, iface);
     }
 
     @property auto svArgs()
@@ -271,7 +268,7 @@ class ServerMessage : Message
 
 class ServerInterface : Interface
 {
-    this (Element el, string protocol)
+    this (Element el, Protocol protocol)
     {
         super(el, protocol);
     }
@@ -354,7 +351,7 @@ class ServerInterface : Interface
 
     void writeIfaceAccess(SourceFile sf)
     {
-        sf.writeln("/// Access to the interface of \"%s.%s\"", protocol, name);
+        sf.writeln("/// Access to the interface of \"%s.%s\"", protocol.name, name);
         sf.writeln("static @property immutable(WlServerInterface) iface()");
         sf.bracedBlock!({
             sf.writeln("return %sIface;", camelName(name));
@@ -376,7 +373,7 @@ class ServerInterface : Interface
             {
                 sf.writeln(
                     "/// Version of %s protocol introducing %s.%s.",
-                    protocol, dName, msg.dMethodName
+                    protocol.name, dName, msg.dMethodName
                 );
                 sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
             }
@@ -388,7 +385,7 @@ class ServerInterface : Interface
             {
                 sf.writeln(
                     "/// %s protocol version introducing %s.%s.",
-                    protocol, dName, msg.dHandlerName
+                    protocol.name, dName, msg.dHandlerName
                 );
                 sf.writeln("enum %sSinceVersion = %d;", msg.dHandlerName, msg.since);
             }
