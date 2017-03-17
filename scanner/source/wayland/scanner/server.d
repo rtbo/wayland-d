@@ -148,10 +148,10 @@ class ServerMessage : Message
 
     @property string[] reqRtArgs()
     {
-        immutable resType = svIface.selfResType(Yes.local);
-        string[] rtArgs = [
-            "WlClient cl", format("%s res", resType)
-        ];
+        string[] rtArgs = [ "WlClient cl" ];
+        if (iface.isGlobal) rtArgs ~= format(
+            "%s res", svIface.selfResType(Yes.local)
+        );
         foreach (a; args) {
             if (a.type == ArgType.NewId && !a.iface.length)
             {
@@ -201,8 +201,9 @@ class ServerMessage : Message
             "wl_client* natCl", "wl_resource* natRes",
         ];
         string[] exprs = [
-            "cast(WlClient)ObjectCache.get(natCl)", "_res",
+            "cast(WlClient)ObjectCache.get(natCl)",
         ];
+        if (iface.isGlobal) exprs ~= "_res";
         foreach (a; args) {
             if (a.type == ArgType.Object)
             {
