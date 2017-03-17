@@ -1,13 +1,10 @@
 // Copyright © 2017 Rémi Thebault
 module comp_client;
 
-// this is a port of https://github.com/hdante/hello_wayland
-
-import hello_helper;
-
 import wayland.client;
 import wayland.native.client;
 import wayland.util;
+import wayland.util.shm_helper;
 
 import core.sys.posix.sys.mman;
 import core.sys.posix.unistd;
