@@ -693,6 +693,12 @@ abstract class Interface
         return max;
     }
 
+    void writeVersion(SourceFile sf)
+    {
+        sf.writeln("/// Version of %s.%s", protocol.name, name);
+        sf.writeln("enum ver = %s;", ver);
+    }
+
     void writePrivIfaceMsgs(SourceFile sf, Message[] msgs, in string suffix)
     {
         if (msgs.empty) return;

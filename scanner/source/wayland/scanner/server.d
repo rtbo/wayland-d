@@ -321,6 +321,8 @@ class ServerInterface : Interface
                 (isGlobal ? " : WlGlobal" : " : WlResource");
         sf.writeln("class %s%s", dName, heritage);
         sf.bracedBlock!({
+            writeVersion(sf);
+            sf.writeln();
             if (name == "wl_display")
             {
                 sf.writeln("this(wl_display* native)");

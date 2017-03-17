@@ -348,6 +348,8 @@ class ClientInterface : Interface
                 "WlProxy");
         sf.bracedBlock!(
         {
+            writeVersion(sf);
+            sf.writeln();
             sf.writeln("/// Build a %s from a native object.", dName);
             sf.writeln(name == "wl_display" ?
                 "package(wayland) this(wl_display* native)" :
