@@ -29,12 +29,13 @@ class Compositor : WlCompositor, CompositorBackendInterface
 
 	// WlCompositor
 
-	override void bind(WlClient cl, uint ver, uint id)
+	override Resource bind(WlClient cl, uint ver, uint id)
 	{
 		writeln("onCompBind");
 		auto res = new Resource(cl, ver, id);
 		res.onCreateSurface = &createSurface;
 		res.onCreateRegion = &createRegion;
+		return res;
 	}
 
 	private WlSurface createSurface(WlClient cl, Resource res, uint id) {
