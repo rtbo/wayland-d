@@ -166,14 +166,24 @@ class ServerMessage : Message
         return rtArgs;
     }
 
+    @property string reqRetStr()
+    {
+        if (reqType == ReqType.newObj) {
+            return ifaceDName(reqRet.iface);
+        }
+        else {
+            return "void";
+        }
+    }
+
     void writeReqDelegateAlias(SourceFile sf)
     {
-        writeDelegateAlias(sf, reqDgAliasName, "void", reqRtArgs);
+        writeDelegateAlias(sf, reqDgAliasName, reqRetStr, reqRtArgs);
     }
 
     void writeReqAbstractMethod(SourceFile sf)
     {
-        writeFnSigRaw(sf, "abstract protected", "void", reqAbstractMethodName, reqRtArgs);
+        writeFnSigRaw(sf, "abstract protected", reqRetStr, reqAbstractMethodName, reqRtArgs);
         sf.writeln(";");
     }
 
@@ -234,17 +244,40 @@ class ServerMessage : Message
                 {
                     sf.writeln("if (_res.%s) {", reqDgMemberName);
                     sf.indentedBlock!({
-                        writeFnExpr(sf, format("_res.%s", reqDgMemberName), exprs);
+                        writePrivStubStmts(sf, exprs);
                     });
                     sf.writeln("}");
                 }
                 else
                 {
-                    writeFnExpr(sf, format("_res.%s", reqAbstractMethodName), exprs);
+                    writePrivStubStmts(sf, exprs);
                 }
             });
             sf.writeln("});");
         });
+    }
+
+    void writePrivStubStmts(SourceFile sf, string[] exprs)
+    {
+        string newRes = reqType == ReqType.newObj ?
+            "auto newRes = " : "";
+
+        if (iface.isGlobal) {
+            writeFnExpr(sf, format("%s_res.%s", newRes, reqDgMemberName), exprs);
+        }
+        else {
+            writeFnExpr(sf, format("%s_res.%s", newRes, reqAbstractMethodName), exprs);
+        }
+
+        if (reqType != ReqType.newObj) return;
+
+        auto svI = cast(ServerInterface)ifaceMap[reqRet.iface];
+        if (svI && svI.requests.length) {
+           writeFnExpr(sf, "wl_resource_set_implementation", [
+                "newRes.native", format("&%s", svI.listenerStubsSymbol),
+                "cast(void*)newRes", "null"
+            ]);
+        }
     }
 
     void writePrivStubSig(SourceFile sf)
@@ -430,11 +463,7 @@ class ServerInterface : Interface
             sf.writeln();
             sf.writeln("this(WlClient cl, uint ver, uint id)");
             sf.bracedBlock!({
-                sf.writeln("auto native = wl_resource_create(cl.native, iface.native, ver, id);");
-                if (requests.length) {
-                    sf.writeln("wl_resource_set_implementation(native, &%s, cast(void*)this, null);", listenerStubsSymbol);
-                }
-                sf.writeln("this(native);");
+                sf.writeln("this(wl_resource_create(cl.native, iface.native, ver, id));");
             });
 
             foreach(rq; svRequests)
