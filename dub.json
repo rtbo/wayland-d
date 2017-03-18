@@ -18,7 +18,6 @@
 		"./examples/list_registry/",
 		"./examples/simple_egl/",
 		"./examples/hello/",
-		"./examples/compositor/",
-		"./examples/comp_client/"
+		"./examples/compositor/"
 	]
 }
