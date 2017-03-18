@@ -38,12 +38,14 @@ class Compositor : WlCompositor, CompositorBackendInterface
 		return res;
 	}
 
-	private WlSurface createSurface(WlClient cl, Resource res, uint id) {
+	private WlSurface createSurface(WlClient cl, Resource, uint id)
+	{
 		return new Surface(this, cl, id);
 	}
 
-	private WlRegion createRegion(WlClient cl, Resource res, uint id) {
-		return null;
+	private WlRegion createRegion(WlClient cl, Resource, uint id)
+	{
+		return new Region(cl, id);
 	}
 
 
@@ -111,6 +113,49 @@ private:
 	{
 		writeln("removeClient");
 		_clients = _clients.remove!(c => c is cl);
+	}
+}
+
+// dumbest possible region implementation
+class Region : WlRegion
+{
+	struct Rect {
+		int x; int y; int width; int height;
+	}
+	Rect[] rects;
+
+	this(WlClient cl, int id)
+    {
+        super(cl, WlRegion.ver, id);
+    }
+
+	override protected void destroy(WlClient cl)
+	{}
+
+    override protected void add(WlClient cl,
+                                int x,
+                                int y,
+                                int width,
+                                int height)
+	{
+		// add without checking for interference
+		rects ~= Rect(x, y, width, height);
+	}
+
+    override protected void subtract(WlClient cl,
+                                     int x,
+                                     int y,
+                                     int width,
+                                     int height)
+	{
+		// naive tentative. no complex algo to refont the rect list
+		immutable rs = Rect(x, y, width, height);
+		foreach (i, r; rects) {
+			if (r == rs) {
+				rects = rects.remove(i);
+				return;
+			}
+		}
 	}
 }
 
