@@ -147,6 +147,19 @@ class ClientMessage : Message
         return args.map!(a => cast(ClientArg)a);
     }
 
+    @property string reqRetStr()
+    {
+        final switch (reqType)
+        {
+        case ReqType.newObj:
+            return ifaceDName(reqRet.iface);
+        case ReqType.dynObj:
+            return "WlProxy";
+        case ReqType.void_:
+            return "void";
+        }
+    }
+
     void writeRequestCode(SourceFile sf)
     {
         final switch(reqType)

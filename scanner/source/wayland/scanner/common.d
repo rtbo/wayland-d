@@ -467,10 +467,9 @@ abstract class Message
     string[] argIfaceTypes;
     size_t ifaceTypeIndex;
     Type type;
-    ReqType reqType;
 
+    ReqType reqType;
     Arg reqRet;
-    string reqRetStr;
 
     this (Element el, Interface iface)
     {
@@ -498,10 +497,9 @@ abstract class Message
 
         if (type == Type.request)
         {
-            auto crr = clientReqReturn;
+            auto crr = reqReturn;
             reqRet = crr[0];
-            reqRetStr = crr[1];
-            reqType = crr[2];
+            reqType = crr[1];
         }
     }
 
@@ -510,35 +508,24 @@ abstract class Message
         return iface.name;
     }
 
-    @property Tuple!(Arg, string, ReqType) clientReqReturn()
+    @property Tuple!(Arg, ReqType) reqReturn()
     {
         Arg ret;
-        string retStr;
         ReqType rt;
         foreach (arg; args)
         {
             if (arg.type == ArgType.NewId)
             {
-                enforce(!ret, "more than 1 new-id for a request");
+                enforce(!ret, "more than 1 new-id for a request!");
                 ret = arg;
-                if (arg.iface.length)
-                {
-                    retStr = ifaceDName(arg.iface);
-                    rt = ReqType.newObj;
-                }
-                else
-                {
-                    retStr = "WlProxy";
-                    rt = ReqType.dynObj;
-                }
+                rt = arg.iface.length ? ReqType.newObj : ReqType.dynObj;
             }
         }
         if (!ret)
         {
-            retStr = "void";
             rt = ReqType.void_;
         }
-        return tuple(ret, retStr, rt);
+        return tuple(ret, rt);
     }
 
     @property bool ifaceTypesAllNull() const
