@@ -1,6 +1,8 @@
 module compositor;
 
 import backend;
+import seat;
+import shell;
 import wayland.server;
 import wayland.server.shm;
 
@@ -13,10 +15,12 @@ import std.process;
 class Compositor : WlCompositor, CompositorBackendInterface
 {
 	private {
-		Backend _backend;
-
 		WlDisplay _display;
 		WlEventLoop _loop;
+
+		Backend _backend;
+		Seat _seat;
+		Shell _shell;
 
 		WlClient[] _clients;
 	}
@@ -24,7 +28,9 @@ class Compositor : WlCompositor, CompositorBackendInterface
 	this(WlDisplay display)
 	{
 		this._display = display;
-		super(display, 4);
+		super(display, ver);
+		_seat = new Seat(this);
+		_shell = new Shell(this);
 	}
 
 	// WlCompositor
@@ -89,7 +95,7 @@ private:
 			spawnProcess([
 				"wayland-tracker", "simple",
 				"-x", "protocol/wayland.xml",
-				"--", "examples/comp_client/wayland-d_comp_client"
+				"--", "examples/hello/wayland-d_hello"
 			]);
 			return 1;
 		});
@@ -172,6 +178,7 @@ class Buffer : WlBuffer
 	override protected void destroy(WlClient cl)
 	{}
 }
+
 
 class Surface : WlSurface
 {
