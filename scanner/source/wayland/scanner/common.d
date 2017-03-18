@@ -30,9 +30,6 @@ interface Factory
 Factory fact;
 
 
-public Interface[string] ifaceMap;
-
-
 void writeMultilineParenthesis(SourceFile sf, in string before,
             in string[] args, in string after)
 {
@@ -634,6 +631,16 @@ abstract class Interface
     // indicate that is created by server rather than by client request.
     // protocal eventually set to false after all interfaces are parsed
     bool isGlobal = true;
+
+
+    private static Interface[string] ifaceMap;
+
+    static Interface get(string name)
+    {
+        auto i = name in ifaceMap;
+        if (i) return *i;
+        else return null;
+    }
 
     this (Element el, Protocol protocol)
     {

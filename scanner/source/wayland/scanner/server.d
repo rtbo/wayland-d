@@ -69,7 +69,7 @@ class ServerArg : Arg
             case ArgType.Object:
                 if (iface.length)
                 {
-                    auto i = iface in ifaceMap;
+                    auto i = ServerInterface.get(iface);
                     if (i && i.isGlobal) {
                         return i.dName ~ ".Resource";
                     }
@@ -168,10 +168,13 @@ class ServerMessage : Message
 
     @property string reqRetStr()
     {
-        if (reqType == ReqType.newObj) {
+        final switch(reqType)
+        {
+        case ReqType.newObj:
             return ifaceDName(reqRet.iface);
-        }
-        else {
+        case ReqType.dynObj:
+            return "WlResource";
+        case ReqType.void_:
             return "void";
         }
     }
@@ -259,8 +262,7 @@ class ServerMessage : Message
 
     void writePrivStubStmts(SourceFile sf, string[] exprs)
     {
-        string newRes = reqType == ReqType.newObj ?
-            "auto newRes = " : "";
+        string newRes = (reqType == ReqType.newObj) ? "auto newRes = " : "";
 
         if (iface.isGlobal) {
             writeFnExpr(sf, format("%s_res.%s", newRes, reqDgMemberName), exprs);
@@ -271,7 +273,8 @@ class ServerMessage : Message
 
         if (reqType != ReqType.newObj) return;
 
-        auto svI = cast(ServerInterface)ifaceMap[reqRet.iface];
+        auto svI = ServerInterface.get(reqRet.iface);
+
         if (svI && svI.requests.length) {
            writeFnExpr(sf, "wl_resource_set_implementation", [
                 "newRes.native", format("&%s", svI.listenerStubsSymbol),
@@ -307,6 +310,16 @@ class ServerMessage : Message
 
 class ServerInterface : Interface
 {
+
+
+    static ServerInterface get(string name)
+    {
+        auto i = Interface.get(name);
+        if (i) return cast(ServerInterface)i;
+        else return null;
+    }
+
+
     this (Element el, Protocol protocol)
     {
         super(el, protocol);
@@ -500,11 +513,7 @@ class ServerInterface : Interface
         sf.writeln();
         sf.writeln("protected this(WlClient cl, uint ver, uint id)");
         sf.bracedBlock!({
-            sf.writeln("auto native = wl_resource_create(cl.native, iface.native, ver, id);");
-            if (requests.length) {
-                sf.writeln("wl_resource_set_implementation(native, &%s, cast(void*)this, null);", listenerStubsSymbol);
-            }
-            sf.writeln("super(native);");
+            sf.writeln("super(wl_resource_create(cl.native, iface.native, ver, id));");
         });
         foreach(rq; svRequests)
         {
