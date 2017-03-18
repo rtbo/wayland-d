@@ -2,6 +2,7 @@ module compositor;
 
 import backend;
 import wayland.server;
+import wayland.server.shm;
 
 import std.algorithm;
 import std.typecons : Flag;
@@ -36,10 +37,12 @@ class Compositor : WlCompositor, CompositorBackendInterface
 		res.onCreateRegion = &createRegion;
 	}
 
-	private void createSurface(WlClient cl, Resource res, uint id) {
+	private WlSurface createSurface(WlClient cl, Resource res, uint id) {
+		return new Surface(this, cl, id);
 	}
 
-	private void createRegion(WlClient cl, Resource res, uint id) {
+	private WlRegion createRegion(WlClient cl, Resource res, uint id) {
+		return null;
 	}
 
 
@@ -109,6 +112,79 @@ private:
 		_clients = _clients.remove!(c => c is cl);
 	}
 }
+
+class Buffer : WlBuffer
+{
+	WlShmBuffer shmBuffer;
+	int width;
+	int height;
+
+	this(WlClient cl, uint id) {
+		super(cl, WlBuffer.ver, id);
+	}
+
+	override protected void destroy(WlClient cl)
+	{}
+}
+
+class Surface : WlSurface
+{
+	Compositor comp;
+
+	this(Compositor comp, WlClient cl, uint id) {
+		this.comp = comp;
+		super(cl, WlSurface.ver, id);
+	}
+
+	override protected void destroy(WlClient cl)
+	{}
+
+    override protected void attach(WlClient cl,
+                                   WlBuffer buffer,
+                                   int x,
+                                   int y)
+	{}
+
+    override protected void damage(WlClient cl,
+                                   int x,
+                                   int y,
+                                   int width,
+                                   int height)
+	{}
+
+    override protected WlCallback frame(WlClient cl,
+                                  	   	uint callback)
+	{
+		return null;
+	}
+
+    override protected void setOpaqueRegion(WlClient cl,
+                                            WlRegion region)
+	{}
+
+    override protected void setInputRegion(WlClient cl,
+                                           WlRegion region)
+	{}
+
+    override protected void commit(WlClient cl)
+	{}
+
+    override protected void setBufferTransform(WlClient cl,
+                                               int transform)
+	{}
+
+    override protected void setBufferScale(WlClient cl,
+                                           int scale)
+	{}
+
+    override protected void damageBuffer(WlClient cl,
+                                         int x,
+                                         int y,
+                                         int width,
+                                         int height)
+	{}
+}
+
 
 int main()
 {
