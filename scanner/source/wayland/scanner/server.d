@@ -143,7 +143,7 @@ class ServerMessage : Message
 
     @property string privRqListenerStubName()
     {
-        return format("wl_d_on_%s_%s", ifaceName, name);
+        return format("wl_d_%s_%s", ifaceName, name);
     }
 
     @property string[] reqRtArgs()
