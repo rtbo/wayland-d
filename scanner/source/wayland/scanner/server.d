@@ -457,6 +457,9 @@ class ServerInterface : Interface
             });
             sf.writeln("));");
         });
+        sf.writeln();
+        sf.writeln("/// Subclasses must inherit this to create and populate a Resource object");
+        sf.writeln("abstract Resource bind(WlClient cl, uint ver, uint id);");
     }
 
     void writeResourceCodeForGlobal(SourceFile sf)
@@ -537,7 +540,11 @@ class ServerInterface : Interface
                 sf.writeln("auto g = cast(%s)data;", dName);
                 sf.writeln("auto cl = cast(WlClient)ObjectCache.get(natCl);");
                 sf.writeln(`assert(g && cl, "%s: could not get global or client from cache");`, bindFuncName);
-                sf.writeln("g.bind(cl, ver, id);");
+                sf.writeln("auto newRes = g.bind(cl, ver, id);");
+                writeFnExpr(sf, "wl_resource_set_implementation", [
+                    "newRes.native", format("&%s", listenerStubsSymbol),
+                    "cast(void*)newRes", "null"
+                ]);
             });
             sf.writeln("});");
         });

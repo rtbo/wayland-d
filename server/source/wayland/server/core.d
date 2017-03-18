@@ -203,8 +203,6 @@ abstract class WlGlobal : Native!wl_global
     {
         wl_global_destroy(_native);
     }
-
-    abstract void bind(WlClient cl, uint ver, uint id);
 }
 
 
