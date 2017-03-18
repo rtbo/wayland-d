@@ -37,7 +37,6 @@ class Compositor : WlCompositor, CompositorBackendInterface
 
 	override Resource bind(WlClient cl, uint ver, uint id)
 	{
-		writeln("onCompBind");
 		auto res = new Resource(cl, ver, id);
 		res.onCreateSurface = &createSurface;
 		res.onCreateRegion = &createRegion;
@@ -122,12 +121,13 @@ private:
 	}
 }
 
+struct Rect {
+	int x; int y; int width; int height;
+}
+
 // dumbest possible region implementation
 class Region : WlRegion
 {
-	struct Rect {
-		int x; int y; int width; int height;
-	}
 	Rect[] rects;
 
 	this(WlClient cl, int id)
@@ -179,14 +179,34 @@ class Buffer : WlBuffer
 	{}
 }
 
+class SurfaceState
+{
+	// attach
+	bool newlyAttached;
+	int x; int y;
+	Buffer buffer;
+
+	// damage
+	Rect[] damageReg;
+	// damageBuffer
+	Rect[] damageBufferReg;
+	// setOpaqueRegion
+	Rect[] opaqueReg;
+	// setInputRegion
+	Rect[] inputReg;
+
+}
+
 
 class Surface : WlSurface
 {
 	Compositor comp;
+	SurfaceState pending;
 
 	this(Compositor comp, WlClient cl, uint id) {
 		this.comp = comp;
 		super(cl, WlSurface.ver, id);
+		pending = new SurfaceState;
 	}
 
 	override protected void destroy(WlClient cl)
@@ -196,7 +216,12 @@ class Surface : WlSurface
                                    WlBuffer buffer,
                                    int x,
                                    int y)
-	{}
+	{
+		pending.buffer = cast(Buffer)buffer;
+		pending.newlyAttached = true;
+		pending.x = x;
+		pending.y = y;
+	}
 
     override protected void damage(WlClient cl,
                                    int x,
