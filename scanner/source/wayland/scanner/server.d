@@ -302,12 +302,12 @@ class ServerInterface : Interface
 
     @property string listenerStubsStructName()
     {
-        return format("%s_listener_stub_aggregate", name);
+        return format("%sListenersAggregate", titleCamelName(name));
     }
 
     @property string listenerStubsSymbol()
     {
-        return format("wl_d_%s_listener_stubs", name);
+        return format("%sListeners", camelName(name));
     }
 
     override void writeCode(SourceFile sf)
@@ -506,9 +506,11 @@ class ServerInterface : Interface
                 rq.writePrivStubSig(sf);
             }
         });
+    }
 
-        sf.writeln();
-        sf.writeln("__gshared %s = %s(", listenerStubsSymbol, listenerStubsStructName);
+    void writePrivRqListenerStubsSymbol(SourceFile sf)
+    {
+        sf.writeln("__gshared %s = %s (", listenerStubsSymbol, listenerStubsStructName);
         sf.indentedBlock!({
             foreach(rq; svRequests) {
                 sf.writeln("&%s,", rq.privRqListenerStubName);
@@ -581,6 +583,11 @@ class ServerProtocol : Protocol
                 iface.writePrivRqListenerStubs(sf);
             }
         });
+        foreach(iface; svIfacesWithRq.filter!(i=>i.name != "wl_display"))
+        {
+            sf.writeln();
+            iface.writePrivRqListenerStubsSymbol(sf);
+        }
     }
 
     override void writePrivIfaces(SourceFile sf)
