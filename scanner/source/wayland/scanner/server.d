@@ -315,7 +315,9 @@ class ServerInterface : Interface
         description.writeCode(sf);
         immutable heritage = name == "wl_display" ? " : WlDisplayBase" :
                 (isGlobal ? " : WlGlobal" : " : WlResource");
-        sf.writeln("class %s%s", dName, heritage);
+        immutable attrs = name == "wl_display" ? "" :
+                (requests.length ? "abstract " : "");
+        sf.writeln("%sclass %s%s", attrs, dName, heritage);
         sf.bracedBlock!({
             writeVersion(sf);
             sf.writeln();
