@@ -204,6 +204,7 @@ class ServerMessage : Message
             if (a.type == ArgType.Object)
             {
                 rtArgs ~= format("wl_resource* %s", a.paramName);
+                // TODO: check if wl_resource_get_user_data could work here
                 exprs ~= format("cast(%s)ObjectCache.get(%s)", a.dType, a.paramName);
             }
             else if (a.type == ArgType.NewId && !a.iface.length)
@@ -225,7 +226,7 @@ class ServerMessage : Message
             sf.writeln("nothrowFnWrapper!({");
             sf.indentedBlock!({
                 immutable resType = svIface.selfResType(No.local);
-                sf.writeln("auto _res = cast(%s)ObjectCache.get(natRes);", resType);
+                sf.writeln("auto _res = cast(%s)wl_resource_get_user_data(natRes);", resType);
                 immutable outer = iface.isGlobal ? ".outer" : "";
                 writeFnExpr(sf, format("_res%s.%s", outer, reqMethodName), exprs);
             });
@@ -370,7 +371,7 @@ class ServerInterface : Interface
             sf.writeln();
             foreach(i, msg; events)
             {
-                sf.writeln("/// Op-code of %s.%s.", dName, msg.dMethodName);
+                sf.writeln("/// Op-code of %s.%s.", name, msg.name);
                 sf.writeln("enum %s = %d;", msg.opCodeName, i);
             }
             sf.writeln();
@@ -378,7 +379,7 @@ class ServerInterface : Interface
             {
                 sf.writeln(
                     "/// Version of %s protocol introducing %s.%s.",
-                    protocol.name, dName, msg.dMethodName
+                    protocol.name, name, msg.name
                 );
                 sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
             }
@@ -390,9 +391,9 @@ class ServerInterface : Interface
             {
                 sf.writeln(
                     "/// %s protocol version introducing %s.%s.",
-                    protocol.name, dName, msg.dHandlerName
+                    protocol.name, name, msg.name
                 );
-                sf.writeln("enum %sSinceVersion = %d;", msg.dHandlerName, msg.since);
+                sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
             }
         }
     }
