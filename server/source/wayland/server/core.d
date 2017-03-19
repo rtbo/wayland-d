@@ -331,6 +331,11 @@ abstract class WlResource : Native!wl_resource
     {
         return fromStringz(wl_resource_get_class(native)).idup;
     }
+
+    void postError(Args...)(uint code, string fmt, Args args)
+    {
+        wl_resource_post_error(native, code, toStringz(format(fmt, args)));
+    }
 }
 
 private extern(C) nothrow
