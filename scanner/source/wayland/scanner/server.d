@@ -42,10 +42,13 @@ class ServerFactory : Factory
 //
 // Globals inherit WlGlobal and are to be created by the compositor at startup.
 // Each created global is announced by the registry to the client.
-// Globals must also create a `[Global].Resource` object for each connected client
-// in the `bind` method.
+// `[Global].bind` function create a `[Global].Resource` object whose implementation
+// is set automatically to the outer Global object, which MUST override the abstract
+// request handlers.
 //
-// Resources inherit WlResource are created by the global objects upon clients requests.
+// Resources inherit WlResource. They are created by global or other parent resource
+// objects upon client requests. These resources must be subclassed by the application
+// and their abstract request handlers must be overriden.
 
 
 class ServerArg : Arg
@@ -116,22 +119,7 @@ class ServerMessage : Message
         return args.map!(a => cast(ServerArg)a);
     }
 
-    @property string reqDgAliasName()
-    {
-        return "On" ~ titleCamelName(name) ~ "Dg";
-    }
-
-    @property string reqDgMemberName()
-    {
-        return "_on" ~ titleCamelName(name) ~ "Dg";
-    }
-
-    @property string reqDgPropName()
-    {
-        return "on" ~ titleCamelName(name);
-    }
-
-    @property string reqAbstractMethodName()
+    @property string reqMethodName()
     {
         return camelName(name);
     }
@@ -179,14 +167,9 @@ class ServerMessage : Message
         }
     }
 
-    void writeReqDelegateAlias(SourceFile sf)
+    void writeReqMethodDecl(SourceFile sf, string[] attrs)
     {
-        writeDelegateAlias(sf, reqDgAliasName, reqRetStr, reqRtArgs);
-    }
-
-    void writeReqAbstractMethod(SourceFile sf)
-    {
-        writeFnSigRaw(sf, "abstract protected", reqRetStr, reqAbstractMethodName, reqRtArgs);
+        writeFnSigRaw(sf, attrs.join(" "), reqRetStr, reqMethodName, reqRtArgs);
         sf.writeln(";");
     }
 
@@ -243,44 +226,11 @@ class ServerMessage : Message
             sf.indentedBlock!({
                 immutable resType = svIface.selfResType(No.local);
                 sf.writeln("auto _res = cast(%s)ObjectCache.get(natRes);", resType);
-                if (iface.isGlobal)
-                {
-                    sf.writeln("if (_res.%s) {", reqDgMemberName);
-                    sf.indentedBlock!({
-                        writePrivStubStmts(sf, exprs);
-                    });
-                    sf.writeln("}");
-                }
-                else
-                {
-                    writePrivStubStmts(sf, exprs);
-                }
+                immutable outer = iface.isGlobal ? ".outer" : "";
+                writeFnExpr(sf, format("_res%s.%s", outer, reqMethodName), exprs);
             });
             sf.writeln("});");
         });
-    }
-
-    void writePrivStubStmts(SourceFile sf, string[] exprs)
-    {
-        string newRes = (reqType == ReqType.newObj) ? "auto newRes = " : "";
-
-        if (iface.isGlobal) {
-            writeFnExpr(sf, format("%s_res.%s", newRes, reqDgMemberName), exprs);
-        }
-        else {
-            writeFnExpr(sf, format("%s_res.%s", newRes, reqAbstractMethodName), exprs);
-        }
-
-        if (reqType != ReqType.newObj) return;
-
-        auto svI = ServerInterface.get(reqRet.iface);
-
-        if (svI && svI.requests.length) {
-           writeFnExpr(sf, "wl_resource_set_implementation", [
-                "newRes.native", format("&%s", svI.listenerStubsSymbol),
-                "cast(void*)newRes", "null"
-            ]);
-        }
     }
 
     void writePrivStubSig(SourceFile sf)
@@ -393,7 +343,6 @@ class ServerInterface : Interface
                 if (isGlobal)
                 {
                     writeGlobalCode(sf);
-                    writeResourceCodeForGlobal(sf);
                 }
                 else
                 {
@@ -458,55 +407,30 @@ class ServerInterface : Interface
             sf.writeln("));");
         });
         sf.writeln();
-        sf.writeln("/// Subclasses must inherit this to create and populate a Resource object");
-        sf.writeln("abstract Resource bind(WlClient cl, uint ver, uint id);");
+        sf.writeln("/// Create a Resource object when a client connects.");
+        sf.writeln("Resource bind(WlClient cl, uint ver, uint id)");
+        sf.bracedBlock!({
+            sf.writeln("return new Resource(cl, ver, id);");
+        });
+        foreach(rq; svRequests)
+        {
+            sf.writeln();
+            rq.description.writeCode(sf);
+            rq.writeReqMethodDecl(sf, ["abstract", "protected"]);
+        }
+        sf.writeln();
+        writeResourceCodeForGlobal(sf);
     }
 
     void writeResourceCodeForGlobal(SourceFile sf)
     {
-        sf.writeln();
-        sf.writeln("static class Resource : WlResource");
+        sf.writeln("class Resource : WlResource");
         sf.bracedBlock!({
-            foreach(rq; svRequests)
-            {
-                rq.writeReqDelegateAlias(sf);
-            }
-            if (requests.length) sf.writeln();
-            sf.writeln("this(wl_resource* native)");
-            sf.bracedBlock!({
-                sf.writeln("super(native);");
-            });
-            sf.writeln();
-            sf.writeln("this(WlClient cl, uint ver, uint id)");
-            sf.bracedBlock!({
-                sf.writeln("this(wl_resource_create(cl.native, iface.native, ver, id));");
-            });
-
-            foreach(rq; svRequests)
-            {
-                sf.writeln();
-                rq.description.writeCode(sf);
-                sf.writeln("@property %s %s()", rq.reqDgAliasName, rq.reqDgPropName);
-                sf.bracedBlock!({
-                    sf.writeln("return %s;", rq.reqDgMemberName);
-                });
-                if (!rq.description.empty) sf.writeln("/// ditto");
-                sf.writeln("@property void %s(%s dg)", rq.reqDgPropName, rq.reqDgAliasName);
-                sf.bracedBlock!({
-                    sf.writeln("%s = dg;", rq.reqDgMemberName);
-                });
-            }
-
+            writeResourceCtor(sf, []);
             foreach(ev; svEvents)
             {
                 sf.writeln();
                 ev.writeSendResMethod(sf);
-            }
-
-            if (requests.length) sf.writeln();
-            foreach(rq; svRequests)
-            {
-                sf.writeln("private %s %s;", rq.reqDgAliasName, rq.reqDgMemberName);
             }
         });
     }
@@ -514,21 +438,39 @@ class ServerInterface : Interface
     void writeResourceCode(SourceFile sf)
     {
         sf.writeln();
-        sf.writeln("protected this(WlClient cl, uint ver, uint id)");
-        sf.bracedBlock!({
-            sf.writeln("super(wl_resource_create(cl.native, iface.native, ver, id));");
-        });
+        writeResourceCtor(sf, ["protected"]);
         foreach(rq; svRequests)
         {
             sf.writeln();
             rq.description.writeCode(sf);
-            rq.writeReqAbstractMethod(sf);
+            rq.writeReqMethodDecl(sf, ["abstract", "protected"]);
         }
         foreach(ev; svEvents)
         {
             sf.writeln();
             ev.writeSendResMethod(sf);
         }
+    }
+
+    void writeResourceCtor(SourceFile sf, string[] attrs)
+    {
+        sf.writeln("%s this(WlClient cl, uint ver, uint id)", attrs.join(" "));
+        sf.bracedBlock!({
+            immutable natExpr = "wl_resource_create(cl.native, iface.native, ver, id)";
+            if (requests.length)
+            {
+                sf.writeln("auto native = %s;", natExpr);
+                writeFnExpr(sf, "wl_resource_set_implementation", [
+                    "native", format("&%s", listenerStubsSymbol),
+                    "cast(void*)this", "null"
+                ]);
+                sf.writeln("super(native);");
+            }
+            else
+            {
+                sf.writeln("super(%s);", natExpr);
+            }
+        });
     }
 
     void writePrivBindStub(SourceFile sf)
@@ -540,11 +482,7 @@ class ServerInterface : Interface
                 sf.writeln("auto g = cast(%s)data;", dName);
                 sf.writeln("auto cl = cast(WlClient)ObjectCache.get(natCl);");
                 sf.writeln(`assert(g && cl, "%s: could not get global or client from cache");`, bindFuncName);
-                sf.writeln("auto newRes = g.bind(cl, ver, id);");
-                writeFnExpr(sf, "wl_resource_set_implementation", [
-                    "newRes.native", format("&%s", listenerStubsSymbol),
-                    "cast(void*)newRes", "null"
-                ]);
+                sf.writeln("g.bind(cl, ver, id);");
             });
             sf.writeln("});");
         });

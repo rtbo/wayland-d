@@ -13,14 +13,7 @@ class Shell : WlShell
         this.comp = comp;
     }
 
-    override Resource bind(WlClient cl, uint ver, uint id)
-    {
-        auto res = new Resource(cl, ver, id);
-        res.onGetShellSurface = &getShellSurface;
-        return res;
-    }
-
-    private WlShellSurface getShellSurface(WlClient cl, Resource res, uint id, WlSurface surf)
+    override WlShellSurface getShellSurface(WlClient cl, Resource res, uint id, WlSurface surf)
     {
         return new ShellSurface(cl, id, surf);
     }

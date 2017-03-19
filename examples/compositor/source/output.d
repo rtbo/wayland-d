@@ -17,8 +17,6 @@ class Output : WlOutput
     abstract @property int width();
     abstract @property int height();
 
-    override Resource bind(WlClient cl, uint ver, uint id)
-    {
-        return null;
-    }
+    override void release(WlClient cl, Resource res)
+    {}
 }

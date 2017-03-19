@@ -35,20 +35,12 @@ class Compositor : WlCompositor, CompositorBackendInterface
 
 	// WlCompositor
 
-	override Resource bind(WlClient cl, uint ver, uint id)
-	{
-		auto res = new Resource(cl, ver, id);
-		res.onCreateSurface = &createSurface;
-		res.onCreateRegion = &createRegion;
-		return res;
-	}
-
-	private WlSurface createSurface(WlClient cl, Resource, uint id)
+	override WlSurface createSurface(WlClient cl, Resource, uint id)
 	{
 		return new Surface(this, cl, id);
 	}
 
-	private WlRegion createRegion(WlClient cl, Resource, uint id)
+	override WlRegion createRegion(WlClient cl, Resource, uint id)
 	{
 		return new Region(cl, id);
 	}

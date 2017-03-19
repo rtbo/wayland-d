@@ -14,9 +14,7 @@ class Seat : WlSeat
 
     override Resource bind(WlClient cl, uint ver, uint id)
     {
-        auto res = new Resource(cl, ver, id);
-        res.onGetPointer = &getPointer;
-        res.onGetKeyboard = &getKeyboard;
+        auto res = super.bind(cl, ver, id);
 
         res.sendCapabilities(Capability.pointer | Capability.keyboard);
         if (ver >= nameSinceVersion) {
@@ -25,15 +23,23 @@ class Seat : WlSeat
         return res;
     }
 
-    private WlPointer getPointer(WlClient cl, Resource res, uint id)
+    override WlPointer getPointer(WlClient cl, Resource res, uint id)
     {
         return new ClPointer(cl, id);
     }
 
-    private WlKeyboard getKeyboard(WlClient cl, Resource res, uint id)
+    override WlTouch getTouch(WlClient cl, Resource res, uint id)
+    {
+        return null;
+    }
+
+    override WlKeyboard getKeyboard(WlClient cl, Resource res, uint id)
     {
         return new ClKeyboard(cl, id);
     }
+
+    override void release(WlClient cl, Resource res)
+    {}
 }
 
 class ClPointer : WlPointer
