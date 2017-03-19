@@ -772,6 +772,8 @@ abstract class Protocol
 
     abstract void writePrivIfaces(SourceFile sf);
 
+    abstract void writeNativeIfacesAssignment(SourceFile sf);
+
     bool isLocalIface(string name)
     {
         return ifaces.map!(iface => iface.name).canFind(name);
@@ -821,13 +823,7 @@ abstract class Protocol
             sf.writeln("import std.exception : assumeUnique;");
             sf.writeln("wl_ifaces = assumeUnique(ifaces);");
             sf.writeln();
-            foreach (iface; ifaces)
-            {
-                sf.writeln("%sIface = new immutable %sIface( &wl_ifaces[%s] );",
-                        camelName(iface.name),
-                        titleCamelName(iface.name),
-                        indexSymbol(iface.name));
-            }
+            writeNativeIfacesAssignment(sf);
         });
     }
 

@@ -589,4 +589,16 @@ class ClientProtocol : Protocol
         }
         writeNativeIfaces(sf);
     }
+
+    override void writeNativeIfacesAssignment(SourceFile sf)
+    {
+        foreach (iface; ifaces)
+        {
+            sf.writeln("%sIface = new immutable %sIface( &wl_ifaces[%s] );",
+                    camelName(iface.name),
+                    titleCamelName(iface.name),
+                    indexSymbol(iface.name));
+        }
+    }
+
 }

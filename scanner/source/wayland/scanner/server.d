@@ -357,7 +357,7 @@ class ServerInterface : Interface
     void writeIfaceAccess(SourceFile sf)
     {
         sf.writeln("/// Access to the interface of \"%s.%s\"", protocol.name, name);
-        sf.writeln("static @property immutable(WlServerInterface) iface()");
+        sf.writeln("static @property immutable(WlInterface) iface()");
         sf.bracedBlock!({
             sf.writeln("return %sIface;", camelName(name));
         });
@@ -587,37 +587,19 @@ class ServerProtocol : Protocol
     {
         foreach(iface; ifaces)
         {
-            sf.writeln("immutable WlServerInterface %sIface;", camelName(iface.name));
-        }
-        foreach (iface; ifaces)
-        {
-            sf.writeln();
-            sf.writeln("immutable final class %sIface : WlServerInterface",
-                    titleCamelName(iface.name));
-            sf.bracedBlock!({
-                sf.writeln("this(immutable wl_interface* native)");
-                sf.bracedBlock!({
-                    sf.writeln("super(native);");
-                });
-                // sf.writeln("override WlResource makeResource(wl_resource* resource) immutable");
-                // sf.bracedBlock!({
-                //     if (iface.name == "wl_display")
-                //         sf.writeln("assert(false, \"Display cannot have any resource!\");");
-                //     else
-                //         sf.writeln("return new %s.Resource(resource);", iface.dName);
-                // });
-            });
+            sf.writeln("immutable WlInterface %sIface;", camelName(iface.name));
         }
 
         writeNativeIfaces(sf);
+    }
 
-        // sf.writeln("shared static this()");
-        // sf.bracedBlock!({
-        //     foreach (iface; ifaces)
-        //     {
-        //         sf.writeln("WlResourceFactory.registerInterface(%sIface);",
-        //                 camelName(iface.name));
-        //     }
-        // });
+    override void writeNativeIfacesAssignment(SourceFile sf)
+    {
+        foreach (iface; ifaces)
+        {
+            sf.writeln("%sIface = new immutable WlInterface ( &wl_ifaces[%s] );",
+                camelName(iface.name), indexSymbol(iface.name)
+            );
+        }
     }
 }

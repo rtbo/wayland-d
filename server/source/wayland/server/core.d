@@ -23,36 +23,6 @@ enum : uint
 }
 
 
-immutable abstract class WlServerInterface : WlInterface
-{
-    this(immutable wl_interface* native)
-    {
-        super(native);
-    }
-
-    // abstract WlResource makeResource(wl_resource* resource) immutable;
-}
-
-// class WlResourceFactory
-// {
-//     import std.typecons : Rebindable;
-
-//     private __gshared Rebindable!(immutable(WlServerInterface))[string] _ifaces;
-
-//     static void registerInterface(immutable(WlServerInterface) iface)
-//     {
-//         _ifaces[iface.name] = iface;
-//     }
-
-//     static WlResource makeResource(wl_resource* res)
-//     {
-//         auto cls = fromStringz(wl_resource_get_class(res));
-//         auto iface = cls in _ifaces;
-//         return iface ? iface.makeResource(res) : null;
-//     }
-// }
-
-
 class WlDisplayBase : Native!wl_display
 {
     mixin nativeImpl!(wl_display);

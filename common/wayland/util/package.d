@@ -22,7 +22,7 @@ mixin template nativeImpl(wl_native)
 }
 
 
-immutable abstract class WlInterface
+immutable class WlInterface
 {
     immutable wl_interface* _native;
 
