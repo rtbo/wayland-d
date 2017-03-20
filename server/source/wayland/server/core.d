@@ -188,12 +188,13 @@ final class WlClient : Native!wl_client
     mixin nativeImpl!wl_client;
 
     alias DestroySig = Signal!(WlClient);
-    alias ResourceCreatedSig = Signal!(WlResource);
+    alias NativeResourceCreatedSig = Signal!(wl_resource*);
 
     private wl_listener _destroyListener;
     private DestroySig _destroySig;
 
-    // private ResourceCreatedSig _resourceCreatedSig;
+    private wl_listener _resourceCreatedListener;
+    private NativeResourceCreatedSig _nativeResourceCreatedSig;
 
     this (wl_client* native)
     {
@@ -203,6 +204,10 @@ final class WlClient : Native!wl_client
         wl_list_init(&_destroyListener.link);
         _destroyListener.notify = &wl_d_client_destroy;
         wl_client_add_destroy_listener(native, &_destroyListener);
+
+        wl_list_init(&_resourceCreatedListener.link);
+        _resourceCreatedListener.notify = &wl_d_client_resource_created;
+        wl_client_add_resource_created_listener(native, &_resourceCreatedListener);
     }
 
     void destroy()
@@ -216,21 +221,21 @@ final class WlClient : Native!wl_client
         return _destroySig;
     }
 
-    // private ResourceCreatedSig resourceCreatedSig()
-    // {
-    //     if (!_resourceCreatedSig) _resourceCreatedSig = new ResourceCreatedSig();
-    //     return _resourceCreatedSig;
-    // }
+    private NativeResourceCreatedSig nativeResourceCreatedSig()
+    {
+        if (!_nativeResourceCreatedSig) _nativeResourceCreatedSig = new NativeResourceCreatedSig();
+        return _nativeResourceCreatedSig;
+    }
 
     void addDestroyListener(DestroySig.Listener listener)
     {
         destroySig.add(listener);
     }
 
-    // void addResourceCreatedListener(ResourceCreatedSig.Listener listener)
-    // {
-    //     resourceCreatedSig.add(listener);
-    // }
+    void addNativeResourceCreatedListener(NativeResourceCreatedSig.Listener listener)
+    {
+        nativeResourceCreatedSig.add(listener);
+    }
 
     void flush()
     {
@@ -381,6 +386,17 @@ private extern(C) nothrow
             if (cl._destroySig) cl._destroySig.emit(cl);
             dpy._clients = dpy._clients.remove!(c => c is cl);
             ObjectCache.remove(natCl);
+        });
+    }
+
+    void wl_d_client_resource_created(wl_listener*, void* data)
+    {
+        nothrowFnWrapper!({
+            auto natRes = cast(wl_resource*)data;
+            auto natCl = wl_resource_get_client(natRes);
+            auto cl = cast(WlClient)ObjectCache.get(natCl);
+            assert(cl);
+            if (cl._nativeResourceCreatedSig) cl._nativeResourceCreatedSig.emit(natRes);
         });
     }
 
