@@ -17,6 +17,7 @@
 		"./examples/connect/",
 		"./examples/list_registry/",
 		"./examples/simple_egl/",
-		"./examples/hello/"
+		"./examples/hello/",
+		"./examples/compositor/"
 	]
 }

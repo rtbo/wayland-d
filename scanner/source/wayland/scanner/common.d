@@ -1,9 +1,11 @@
 // Copyright © 2017 Rémi Thebault
 /++
  +  Wayland scanner for D.
- +  Scan wayland XML protocol and generates client or server code for that protocol.
+ +  Generation of common protocol code.
  +/
-module wayland.scanner;
+module wayland.scanner.common;
+
+import wayland.scanner;
 
 import arsd.dom;
 
@@ -12,97 +14,140 @@ import std.array;
 import std.conv;
 import std.exception;
 import std.format;
-import std.getopt;
 import std.range;
 import std.stdio;
 import std.typecons;
 import std.uni;
 
-enum scannerVersion = "v0.0.1";
-enum usageIntro = "wayland-d:scanner-"~scannerVersion~"\n"~
-                  "  A Wayland protocol scanner and D code generator.\n\n";
-enum bindingsCopyright = "Copyright © 2017 Rémi Thebault";
-
-
-int main(string[] args)
+interface Factory
 {
-    auto opt = new Options;
-    opt.cmdLine = args.join(" ");
-    auto optHandler = getopt (
-        args,
-        "code|c",   "generated code: client|server [client]", &opt.code,
-        "input|i",  "input file [stdin]", &opt.inFile,
-        "output|o", "output file [stdout]", &opt.outFile,
-        "module|m", "D module name (required)", &opt.moduleName,
-    );
+    Protocol makeProtocol(Element el);
+    Interface makeInterface(Element el, Protocol protocol);
+    Message makeMessage(Element el, Interface iface);
+    Arg makeArg(Element el);
+}
 
-    if (optHandler.helpWanted)
+Factory fact;
+
+
+void writeMultilineParenthesis(SourceFile sf, in string before,
+            in string[] args, in string after)
+{
+    immutable indent = ' '.repeat(before.length+1).array();
+    sf.write("%s(", before);
+    foreach (i, a; args)
     {
-        defaultGetoptFormatter (
-            stdout.lockingTextWriter,
-            usageIntro ~ "Options:",
-            optHandler.options
-        );
-        return 0;
-    }
-
-    if (opt.moduleName.empty)
-    {
-        defaultGetoptFormatter (
-            stderr.lockingTextWriter,
-            usageIntro ~
-            "Error: D module name must be supplied with '--module' or '-m'\n\n" ~
-            "Options:",
-            optHandler.options
-        );
-        return 1;
-    }
-
-    enforce(opt.code == GenCode.client, "Only client generator is implemented at this time");
-
-    try
-    {
-        File input = (opt.inFile.empty) ? stdin : File(opt.inFile, "r");
-        File output = (opt.outFile.empty) ? stdout : File(opt.outFile, "w");
-
-        string xmlStr;
-        foreach (string l; lines(input))
+        if (i != 0)
         {
-            xmlStr ~= l;
+            sf.writeln(",");
+            sf.write(indent);
         }
-        auto xmlDoc = new Document;
-        xmlDoc.parse(xmlStr, true, true);
-        auto p = new Protocol(xmlDoc.root);
-        p.writeClientCode(new SourceFile(output), opt);
+        sf.write(a);
     }
-    catch(Exception ex)
+    sf.writeln(")%s", after);
+}
+
+void writeDelegateAlias(SourceFile sf, string name, string ret, string[] rtArgs)
+{
+    immutable fstLine = format("alias %s = %s delegate(", name, ret);
+    immutable indent = ' '.repeat(fstLine.length).array();
+    sf.write(fstLine);
+    foreach(i, rta; rtArgs)
     {
-        stderr.writeln("Error: "~ex.msg);
-        return 1;
+        if (i != 0)
+        {
+            sf.writeln(",");
+            sf.write(indent);
+        }
+        sf.write(rta);
     }
-
-    return 0;
+    sf.writeln(");");
 }
 
-private:
-
-enum GenCode
+void writeFnSigRaw(SourceFile sf, string qualifiers, string ret, string name,
+                string[] rtArgs, string[] ctArgs=[], string constraint="")
 {
-    client,
-    server,
+    immutable ctSig = ctArgs.length ? format("!(%(%s, %))", ctArgs) : "";
+    immutable qual = qualifiers.length ? format("%s ", qualifiers) : "";
+    immutable fstLine = format("%s%s %s%s(", qual, ret, name, ctSig);
+    immutable indent = ' '.repeat(fstLine.length).array();
+    sf.write(fstLine);
+    foreach (i, rta; rtArgs)
+    {
+        if (i != 0)
+        {
+            sf.writeln(",");
+            sf.write(indent);
+        }
+        sf.write(rta);
+    }
+    sf.write(")");
+    if (constraint.length)
+    {
+        sf.write("if (%s)", constraint);
+    }
 }
 
-class Options
+void writeFnSig(SourceFile sf, string ret, string name, string[] rtArgs,
+                string[] ctArgs=[], string constraint="")
 {
-    string cmdLine;
-
-    string inFile;
-    string outFile;
-    string moduleName;
-
-    GenCode code;
+    writeFnSigRaw(sf, "", ret, name, rtArgs, ctArgs, constraint);
+    sf.writeln();
 }
 
+void writeFnExpr(SourceFile sf, string stmt, string[] exprs)
+{
+    sf.writeln("%s(", stmt);
+    sf.indentedBlock!({
+        immutable ic = sf.indentChars;
+        int width = ic;
+        foreach (i, e; exprs)
+        {
+            if (i != 0)
+            {
+                sf.write(",");
+                width += 1;
+            }
+            width += e.length;
+            if (width > wrapWidth)
+            {
+                sf.writeln();
+                width = ic;
+            }
+            else if (i != 0)
+            {
+                sf.write(" ");
+                width += 1;
+            }
+            sf.write(e);
+        }
+    });
+    sf.writeln();
+    sf.writeln(");");
+}
+
+void writeFnPointer(SourceFile sf, string name, string ret, string[] args)
+{
+    writeMultilineParenthesis(
+        sf, format("%s function", ret), args, format(" %s;", name)
+    );
+}
+
+void writeFnBody(SourceFile sf, string[] preStmts, string mainStmt,
+                string[] exprs, string[] postStmt)
+{
+    sf.bracedBlock!({
+        foreach (ps; preStmts)
+        {
+            sf.writeln(ps);
+        }
+        writeFnExpr(sf, mainStmt, exprs);
+        foreach (ps; postStmt)
+        {
+            sf.writeln(ps);
+        }
+    });
+}
 
 enum ArgType
 {
@@ -241,7 +286,7 @@ class Enum
 
 
 
-class Arg
+abstract class Arg
 {
     string name;
     string summary;
@@ -292,51 +337,6 @@ class Arg
         enforce(!nullable || isNullable(type));
     }
 
-    @property string reqCType() const
-    {
-        final switch(type) {
-            case ArgType.Int:
-                return "int";
-            case ArgType.UInt:
-                return "uint";
-            case ArgType.Fixed:
-                return "wl_fixed_t";
-            case ArgType.String:
-                return "const(char)*";
-            case ArgType.Object:
-                return "wl_proxy*";
-            case ArgType.NewId:
-                return "uint";
-            case ArgType.Array:
-                return "wl_array*";
-            case ArgType.Fd:
-                return "int";
-        }
-    }
-
-    @property string evCType() const
-    {
-        final switch(type) {
-            case ArgType.Int:
-                return "int";
-            case ArgType.UInt:
-                return "uint";
-            case ArgType.Fixed:
-                return "wl_fixed_t";
-            case ArgType.String:
-                return "const(char)*";
-            case ArgType.Object:
-                if (iface.empty) return "void*";
-                else return "wl_proxy*";
-            case ArgType.NewId:
-                return "uint";
-            case ArgType.Array:
-                return "wl_array*";
-            case ArgType.Fd:
-                return "int";
-        }
-    }
-
     @property string dType() const
     {
         final switch(type) {
@@ -349,15 +349,34 @@ class Arg
                 return "WlFixed";
             case ArgType.String:
                 return "string";
-            case ArgType.Object:
-                if (iface.length)
-                    return ifaceDName(iface);
-                else
-                    return "WlProxy";
             case ArgType.NewId:
                 return "uint";
             case ArgType.Array:
                 return "wl_array*"; // ?? let's check this later
+            case ArgType.Fd:
+                return "int";
+            case ArgType.Object:
+                assert(false, "must be implemented in subclasses");
+        }
+    }
+
+    @property string cType() const
+    {
+        final switch(type) {
+            case ArgType.Int:
+                return "int";
+            case ArgType.UInt:
+                return "uint";
+            case ArgType.Fixed:
+                return "wl_fixed_t";
+            case ArgType.String:
+                return "const(char)*";
+            case ArgType.Object:
+                assert(false, "unimplemented");
+            case ArgType.NewId:
+                return "uint";
+            case ArgType.Array:
+                return "wl_array*";
             case ArgType.Fd:
                 return "int";
         }
@@ -380,14 +399,14 @@ class Arg
                 return format("%s.raw", paramName);
             case ArgType.String:
                 return format("toStringz(%s)", paramName);
-            case ArgType.Object:
-                return format("%s.proxy", paramName);
             case ArgType.NewId:
                 return paramName;
             case ArgType.Array:
                 return paramName;
             case ArgType.Fd:
                 return paramName;
+            case ArgType.Object:
+                assert(false, "must be implemented in subclasses");
         }
     }
 
@@ -409,11 +428,7 @@ class Arg
             case ArgType.String:
                 return format("fromStringz(%s).idup", paramName);
             case ArgType.Object:
-                auto expr = format("WlProxy.get(%s)", paramName);
-                if (iface)
-                    return format("cast(%s)%s", ifaceDName(iface), expr);
-                else
-                    return expr;
+                assert(false, "unimplemented");
             case ArgType.NewId:
                 return paramName;
             case ArgType.Array:
@@ -424,8 +439,7 @@ class Arg
     }
 }
 
-
-class Message
+abstract class Message
 {
     enum Type
     {
@@ -441,7 +455,7 @@ class Message
     }
 
     string name;
-    string ifaceName;
+    Interface iface;
     int since = 1;
     bool isDtor;
     Description description;
@@ -450,16 +464,15 @@ class Message
     string[] argIfaceTypes;
     size_t ifaceTypeIndex;
     Type type;
+
     ReqType reqType;
-
     Arg reqRet;
-    string reqRetStr;
 
-    this (Element el, string ifaceName)
+    this (Element el, Interface iface)
     {
         assert(el.tagName == "request" || el.tagName == "event");
+        this.iface = iface;
         name = el.getAttribute("name");
-        this.ifaceName = ifaceName;
         if (el.hasAttribute("since"))
         {
             since = el.getAttribute("since").to!int;
@@ -468,7 +481,7 @@ class Message
         description = new Description(el);
         foreach (argEl; el.getElementsByTagName("arg"))
         {
-            args ~= new Arg(argEl);
+            args ~= fact.makeArg(argEl);
         }
 
         argIfaceTypes = args
@@ -481,42 +494,35 @@ class Message
 
         if (type == Type.request)
         {
-            auto crr = clientReqReturn;
+            auto crr = reqReturn;
             reqRet = crr[0];
-            reqRetStr = crr[1];
-            reqType = crr[2];
+            reqType = crr[1];
         }
     }
 
-    @property Tuple!(Arg, string, ReqType) clientReqReturn()
+    @property string ifaceName()
+    {
+        return iface.name;
+    }
+
+    @property Tuple!(Arg, ReqType) reqReturn()
     {
         Arg ret;
-        string retStr;
         ReqType rt;
         foreach (arg; args)
         {
             if (arg.type == ArgType.NewId)
             {
-                enforce(!ret, "more than 1 new-id for a request");
+                enforce(!ret, "more than 1 new-id for a request!");
                 ret = arg;
-                if (arg.iface.length)
-                {
-                    retStr = ifaceDName(arg.iface);
-                    rt = ReqType.newObj;
-                }
-                else
-                {
-                    retStr = "WlProxy";
-                    rt = ReqType.dynObj;
-                }
+                rt = arg.iface.length ? ReqType.newObj : ReqType.dynObj;
             }
         }
         if (!ret)
         {
-            retStr = "void";
             rt = ReqType.void_;
         }
-        return tuple(ret, retStr, rt);
+        return tuple(ret, rt);
     }
 
     @property bool ifaceTypesAllNull() const
@@ -529,17 +535,22 @@ class Message
         return argIfaceTypes.empty ? args.length : 0;
     }
 
-    @property string dReqName()
+    @property string dMethodName()
     {
         return validDName(camelName(name));
     }
 
-    @property string reqOpCode()
+    @property string opCodeName()
     {
         return format("%sOpCode", camelName(name));
     }
 
-    @property string dEvName()
+    @property string onOpCodeName()
+    {
+        return format("on%sOpCode", titleCamelName(name));
+    }
+
+    @property string dHandlerName()
     {
         return "on" ~ titleCamelName(name);
     }
@@ -547,11 +558,6 @@ class Message
     @property string dEvDgType()
     {
         return "On" ~ titleCamelName(name) ~ "EventDg";
-    }
-
-    @property string evOpCode()
-    {
-        return format("on%sOpCode", titleCamelName(name));
     }
 
     @property string cEvName()
@@ -602,169 +608,6 @@ class Message
         return sig;
     }
 
-    void writeSig(SourceFile sf, string ret, string name, string[] rtArgs,
-                    string[] ctArgs=[], string constraint="")
-    {
-        immutable ctSig = ctArgs.length ? format("!(%(%s, %))", ctArgs) : "";
-        immutable fstLine = format("%s %s%s(", ret, name, ctSig);
-        immutable indent = ' '.repeat(fstLine.length).array();
-        sf.write(fstLine);
-        foreach (i, rta; rtArgs)
-        {
-            if (i != 0)
-            {
-                sf.writeln(",");
-                sf.write(indent);
-            }
-            sf.write(rta);
-        }
-        sf.writeln(")");
-        if (constraint.length)
-        {
-            sf.writeln("if (%s)", constraint);
-        }
-    }
-
-    void writeBody(SourceFile sf, string[] preStmts, string mainStmt,
-                    string[] expr, string[] postStmt)
-    {
-        sf.bracedBlock!({
-            foreach (ps; preStmts)
-            {
-                sf.writeln(ps);
-            }
-            sf.writeln("%s(", mainStmt);
-            foreach (i, e; expr)
-            {
-                if (i == 0) sf.write("    ");
-                else sf.write(", ");
-                sf.write(e);
-            }
-            sf.writeln();
-            sf.writeln(");");
-            foreach (ps; postStmt)
-            {
-                sf.writeln(ps);
-            }
-        });
-    }
-
-    void writeVoidReqDefinitionCode(SourceFile sf)
-    {
-        string[] prepArgs;
-        string[] prepExpr = [
-            "proxy", reqOpCode
-        ];
-        foreach(arg; args)
-        {
-            prepArgs ~= (arg.dType ~ " " ~ arg.paramName);
-            prepExpr ~= arg.cCastExpr;
-        }
-        string[] postStmt = isDtor ? ["super.destroyNotify();"] : [];
-
-        description.writeCode(sf);
-        writeSig(sf, "void", dReqName, prepArgs);
-        writeBody(sf, [], "wl_proxy_marshal", prepExpr, postStmt);
-    }
-
-    void writeNewObjReqDefinitionCode(SourceFile sf)
-    {
-        string[] prepArgs;
-        string[] prepExpr = [
-            "proxy", reqOpCode, format("%s.iface.native", ifaceDName(reqRet.iface))
-        ];
-        foreach(arg; args)
-        {
-            if (arg is reqRet)
-            {
-                prepExpr ~= "null";
-            }
-            else
-            {
-                prepArgs ~= format("%s %s", arg.dType, arg.paramName);
-                prepExpr ~= arg.cCastExpr;
-            }
-        }
-        description.writeCode(sf);
-        writeSig(sf, reqRetStr, dReqName, prepArgs);
-        writeBody(sf, [],
-            "auto _pp = wl_proxy_marshal_constructor", prepExpr,
-            [   "if (!_pp) return null;",
-                "auto _p = WlProxy.get(_pp);",
-                format("if (_p) return cast(%s)_p;", reqRetStr),
-                format("return new %s(_pp);", reqRetStr)    ]
-        );
-    }
-
-    void writeDynObjReqDefinitionCode(SourceFile sf)
-    {
-        string[] prepArgs;
-        string[] prepExpr = [
-            "proxy", reqOpCode, "iface.native", "ver"
-        ];
-        foreach(arg; args)
-        {
-            if (arg is reqRet)
-            {
-                prepArgs ~= [ "immutable(WlProxyInterface) iface", "uint ver" ];
-                prepExpr ~= [ "iface.native.name", "ver" ];
-            }
-            else
-            {
-                prepArgs ~= format("%s %s", arg.dType, arg.paramName);
-                prepExpr ~= arg.cCastExpr;
-            }
-        }
-        description.writeCode(sf);
-        writeSig(sf, reqRetStr, dReqName, prepArgs);
-        writeBody(sf, [],
-            "auto _pp = wl_proxy_marshal_constructor_versioned", prepExpr,
-            [   "if (!_pp) return null;",
-                "auto _p = WlProxy.get(_pp);",
-                "if (_p) return _p;",
-                "return iface.makeProxy(_pp);"  ]
-        );
-    }
-
-    void writeClientRequestCode(SourceFile sf)
-    {
-        final switch(reqType)
-        {
-        case ReqType.void_:
-            writeVoidReqDefinitionCode(sf);
-            break;
-        case ReqType.newObj:
-            writeNewObjReqDefinitionCode(sf);
-            break;
-        case ReqType.dynObj:
-            writeDynObjReqDefinitionCode(sf);
-            break;
-        }
-    }
-
-    void writeClientEventDgAlias(SourceFile sf)
-    {
-        sf.writeln("/// Event delegate signature of %s.%s.", ifaceDName(ifaceName), dEvName);
-        immutable fstLine = format("alias %s = void delegate (", dEvDgType);
-        immutable indent = ' '.repeat(fstLine.length).array();
-        string eol = args.length ? "," : ");";
-        sf.writeln("%s%s %s%s", fstLine, ifaceDName(ifaceName), camelName(ifaceName), eol);
-        foreach(i, arg; args)
-        {
-            eol = i == args.length-1 ? ");" : ",";
-            sf.writeln("%s%s %s%s", indent, arg.dType, arg.paramName, eol);
-        }
-    }
-
-    void writeClientEventDgAccessor(SourceFile sf)
-    {
-        description.writeCode(sf);
-        sf.writeln("@property void %s(%s dg)", dEvName, dEvDgType);
-        sf.bracedBlock!({
-            sf.writeln("_%s = dg;", dEvName);
-        });
-    }
-
     void writePrivIfaceMsg(SourceFile sf)
     {
         sf.writeln(
@@ -772,64 +615,12 @@ class Message
             name, signature, ifaceTypeIndex
         );
     }
-
-    void writePrivListenerSig(SourceFile sf)
-    {
-        enum fstLine = "void function(";
-        immutable lstEol = format(") %s;", cEvName);
-
-        immutable indent = ' '.repeat.take(fstLine.length).array();
-        sf.writeln("%svoid* data,", fstLine);
-        auto eol = args.empty ? lstEol : ",";
-        sf.writeln("%swl_proxy* proxy%s", indent, eol);
-        foreach(i, arg; args)
-        {
-            eol = i == args.length-1 ? lstEol : ",";
-            sf.writeln("%s%s %s%s", indent, arg.evCType, arg.paramName, eol);
-        }
-    }
-
-    void writePrivListenerStub(SourceFile sf)
-    {
-        immutable fstLine = format("void wl_d_on_%s_%s(", ifaceName, name);
-        immutable indent = ' '.repeat.take(fstLine.length).array();
-        sf.writeln("%svoid* data,", fstLine);
-        auto eol = args.empty ? ")" : ",";
-        sf.writeln("%swl_proxy* proxy%s", indent, eol);
-        foreach(i, arg; args)
-        {
-            eol = i == args.length-1 ? ")" : ",";
-            sf.writeln("%s%s %s%s", indent, arg.evCType, arg.paramName, eol);
-        }
-        sf.bracedBlock!({
-            sf.writeln("nothrowFnWrapper!({");
-            sf.indentedBlock!({
-                sf.writeln("auto _p = WlProxy.get(proxy);");
-                sf.writeln("assert(_p, \"listener stub without proxy\");");
-                sf.writeln("auto _i = cast(%s)_p;", ifaceDName(ifaceName));
-                sf.writeln("assert(_i, \"listener stub proxy is not %s\");", ifaceDName(ifaceName));
-                sf.writeln("if (_i._%s)", dEvName);
-                sf.bracedBlock!({
-                    string sep = args.length ? ", " : "";
-                    sf.write("_i._%s(_i%s", dEvName, sep);
-                    foreach (i, arg; args)
-                    {
-                        sep = (i == args.length-1) ? "" : ", ";
-                        sf.write("%s%s", arg.dCastExpr(ifaceName), sep);
-                    }
-                    sf.writeln(");");
-                });
-
-            });
-            sf.writeln("});");
-        });
-    }
 }
 
 
-class Interface
+abstract class Interface
 {
-    string protocol;
+    Protocol protocol;
     string name;
     string ver;
     Description description;
@@ -837,7 +628,21 @@ class Interface
     Message[] events;
     Enum[] enums;
 
-    this (Element el, string protocol)
+    // indicate that is created by server rather than by client request.
+    // protocal eventually set to false after all interfaces are parsed
+    bool isGlobal = true;
+
+
+    private static Interface[string] ifaceMap;
+
+    static Interface get(string name)
+    {
+        auto i = name in ifaceMap;
+        if (i) return *i;
+        else return null;
+    }
+
+    this (Element el, Protocol protocol)
     {
         assert(el.tagName == "interface");
         this.protocol = protocol;
@@ -846,17 +651,20 @@ class Interface
         description = new Description(el);
         foreach (rqEl; el.getElementsByTagName("request"))
         {
-            requests ~= new Message(rqEl, name);
+            requests ~= fact.makeMessage(rqEl, this);
         }
         foreach (evEl; el.getElementsByTagName("event"))
         {
-            events ~= new Message(evEl, name);
+            events ~= fact.makeMessage(evEl, this);
         }
         foreach (enEl; el.getElementsByTagName("enum"))
         {
             enums ~= new Enum(enEl, name);
         }
+        ifaceMap[name] = this;
     }
+
+    abstract void writeCode(SourceFile sf);
 
     @property string dName() const
     {
@@ -879,159 +687,10 @@ class Interface
         return max;
     }
 
-    void writeConstants(SourceFile sf)
+    void writeVersion(SourceFile sf)
     {
-        if (requests.length)
-        {
-            sf.writeln();
-            foreach(i, msg; requests)
-            {
-                sf.writeln("/// Op-code of %s.%s.", dName, msg.dReqName);
-                sf.writeln("enum %s = %d;", msg.reqOpCode, i);
-            }
-            sf.writeln();
-            foreach(msg; requests)
-            {
-                sf.writeln(
-                    "/// Version of %s protocol introducing %s.%s.",
-                    protocol, dName, msg.dReqName
-                );
-                sf.writeln("enum %sSinceVersion = %d;", camelName(msg.name), msg.since);
-            }
-        }
-        if (events.length)
-        {
-            sf.writeln();
-            foreach(msg; events)
-            {
-                sf.writeln(
-                    "/// %s protocol version introducing %s.%s.",
-                    protocol, dName, msg.dEvName
-                );
-                sf.writeln("enum %sSinceVersion = %d;", msg.dEvName, msg.since);
-            }
-        }
-    }
-
-    void writeClientDtorCode(SourceFile sf)
-    {
-        immutable hasDtor = requests.canFind!(rq => rq.isDtor);
-        immutable hasDestroy = requests.canFind!(rq => rq.name == "destroy");
-
-        enforce(!hasDestroy || hasDtor);
-
-        if (!hasDestroy && name != "wl_display")
-        {
-            sf.writeln();
-            sf.writeln("/// Destroy this %s object.", dName);
-            sf.writeln("void destroy()");
-            sf.bracedBlock!({
-                sf.writeln("wl_proxy_destroy(proxy);");
-                sf.writeln("super.destroyNotify();");
-            });
-        }
-    }
-
-    void writeClientCode(SourceFile sf)
-    {
-        description.writeCode(sf);
-
-        sf.writeln("final class %s : %s", dName,
-            name == "wl_display" ?
-                "WlDisplayBase" :
-                "WlProxy");
-        sf.bracedBlock!(
-        {
-            sf.writeln("/// Build a %s from a native object.", dName);
-            sf.writeln(name == "wl_display" ?
-                "package(wayland) this(wl_display* native)" :
-                "private this(wl_proxy* native)"
-            );
-            sf.bracedBlock!({
-                sf.writeln("super(native);");
-                if (writeEvents)
-                {
-                    sf.writeln(
-                        "wl_proxy_add_listener(proxy, cast(void_func_t*)&the%sListener, null);",
-                        titleCamelName(name)
-                    );
-                }
-            });
-            sf.writeln();
-            sf.writeln("/// Interface object that creates %s objects.", dName);
-            sf.writeln("static @property immutable(WlProxyInterface) iface()");
-            sf.bracedBlock!({
-                sf.writeln("return %sIface;", camelName(name));
-            });
-            writeConstants(sf);
-            if (writeEvents)
-            {
-                sf.writeln();
-                foreach(msg; events)
-                {
-                    msg.writeClientEventDgAlias(sf);
-                }
-            }
-            foreach (en; enums)
-            {
-                sf.writeln();
-                en.writeCode(sf);
-            }
-            writeClientDtorCode(sf);
-            foreach (msg; requests)
-            {
-                sf.writeln();
-                msg.writeClientRequestCode(sf);
-            }
-            if (writeEvents)
-            {
-                foreach(msg; events)
-                {
-                    sf.writeln();
-                    msg.writeClientEventDgAccessor(sf);
-                }
-
-                sf.writeln();
-                foreach(msg; events)
-                {
-                    sf.writeln("private %s _%s;", msg.dEvDgType, msg.dEvName);
-                }
-            }
-        });
-    }
-
-    void writePrivListener(SourceFile sf)
-    {
-        if (!writeEvents) return;
-
-        sf.writeln("struct %s_listener", name);
-        sf.bracedBlock!({
-            foreach(ev; events)
-            {
-                ev.writePrivListenerSig(sf);
-            }
-        });
-
-        sf.writeln();
-        immutable fstLine = format("__gshared the%sListener = %s_listener (", titleCamelName(name), name);
-        immutable indent = ' '.repeat(fstLine.length).array();
-        foreach (i, ev; events)
-        {
-            sf.writeln("%s&wl_d_on_%s_%s%s", (i == 0 ? fstLine : indent),
-                                        name, ev.name,
-                                        (i == events.length-1) ? ");" : ",");
-        }
-    }
-
-    void writePrivListenerStubs(SourceFile sf)
-    {
-        if (!writeEvents) return;
-
-        foreach(ev; events)
-        {
-            sf.writeln();
-            ev.writePrivListenerStub(sf);
-        }
+        sf.writeln("/// Version of %s.%s", protocol.name, name);
+        sf.writeln("enum ver = %s;", ver);
     }
 
     void writePrivIfaceMsgs(SourceFile sf, Message[] msgs, in string suffix)
@@ -1070,7 +729,7 @@ class Interface
 }
 
 
-class Protocol
+abstract class Protocol
 {
     string name;
     string copyright;
@@ -1085,11 +744,35 @@ class Protocol
             copyright = cr.getElText();
             break;
         }
+        Interface[string] ifaceMap;
         foreach (ifEl; el.getElementsByTagName("interface"))
         {
-            ifaces ~= new Interface(ifEl, name);
+            auto iface = fact.makeInterface(ifEl, this);
+            ifaceMap[iface.name] = iface;
+            ifaces ~= iface;
+        }
+
+        foreach(iface; ifaces)
+        {
+            foreach(req; iface.requests)
+            {
+                foreach(arg; req.args)
+                {
+                    if (arg.type == ArgType.NewId)
+                    {
+                        auto ifp = arg.iface in ifaceMap;
+                        if (ifp) ifp.isGlobal = false;
+                    }
+                }
+            }
         }
     }
+
+    abstract void writeCode(SourceFile sf, in Options opt);
+
+    abstract void writePrivIfaces(SourceFile sf);
+
+    abstract void writeNativeIfacesAssignment(SourceFile sf);
 
     bool isLocalIface(string name)
     {
@@ -1116,70 +799,8 @@ class Protocol
         );
     }
 
-    void writeClientCode(SourceFile sf, in Options opt)
+    void writeNativeIfaces(SourceFile sf)
     {
-        writeHeader(sf, opt);
-        if (name == "wayland") sf.writeln("import wayland.client.core;");
-        else sf.writeln("import wayland.client;");
-        sf.writeln("import wayland.native.client;");
-        sf.writeln("import wayland.native.util;");
-        sf.writeln("import wayland.util;");
-        sf.writeln();
-        sf.writeln("import std.exception : enforce;");
-        sf.writeln("import std.string : fromStringz, toStringz;");
-        sf.writeln();
-
-        foreach(iface; ifaces)
-        {
-            iface.writeClientCode(sf);
-            sf.writeln();
-        }
-
-        // writing private code
-        sf.writeln("private:");
-        sf.writeln();
-
-        writePrivIfaces(sf);
-        sf.writeln();
-
-        sf.writeln("extern(C) nothrow");
-        sf.bracedBlock!({
-            foreach(i, iface; ifaces)
-            {
-                if (i != 0) sf.writeln();
-                iface.writePrivListener(sf);
-                iface.writePrivListenerStubs(sf);
-            }
-        });
-    }
-
-    void writePrivIfaces(SourceFile sf)
-    {
-        foreach(iface; ifaces)
-        {
-            sf.writeln("immutable WlProxyInterface %sIface;", camelName(iface.name));
-        }
-        foreach (iface; ifaces)
-        {
-            sf.writeln();
-            sf.writeln("immutable final class %sIface : WlProxyInterface",
-                    titleCamelName(iface.name));
-            sf.bracedBlock!({
-                sf.writeln("this(immutable wl_interface* native)");
-                sf.bracedBlock!({
-                    sf.writeln("super(native);");
-                });
-                sf.writeln("override WlProxy makeProxy(wl_proxy* proxy) immutable");
-                sf.bracedBlock!({
-                    if (iface.name == "wl_display")
-                    {
-                        sf.writeln("return new WlDisplay(cast(wl_display*)proxy);");
-                    }
-                    else
-                        sf.writeln("return new %s(proxy);", iface.dName);
-                });
-            });
-        }
         sf.writeln();
         sf.writeln("immutable wl_interface[] wl_ifaces;");
         sf.writeln();
@@ -1202,13 +823,7 @@ class Protocol
             sf.writeln("import std.exception : assumeUnique;");
             sf.writeln("wl_ifaces = assumeUnique(ifaces);");
             sf.writeln();
-            foreach (iface; ifaces)
-            {
-                sf.writeln("%sIface = new immutable %sIface( &wl_ifaces[%s] );",
-                        camelName(iface.name),
-                        titleCamelName(iface.name),
-                        indexSymbol(iface.name));
-            }
+            writeNativeIfacesAssignment(sf);
         });
     }
 
@@ -1364,6 +979,11 @@ class SourceFile
         return _indentLev;
     }
 
+    @property int indentChars() const
+    {
+        return _indentLev * charsPerIndent;
+    }
+
     void indent()
     {
         _indentLev += 1;
@@ -1494,9 +1114,12 @@ string titleCamelName(in string[] comps...) pure
     return name;
 }
 
+enum charsPerIndent = 4;
+enum wrapWidth = 80;
+
 string indentStr(int indent) pure
 {
-    return "    ".replicate(indent);
+    return ' '.repeat(indent * charsPerIndent).array();
 }
 
 string qualfiedTypeName(in string name) pure
@@ -1507,7 +1130,8 @@ string qualfiedTypeName(in string name) pure
             .join(".");
 }
 
-string splitLinesForWidth(string input, in string suffix, in string indent, in size_t width=80) pure
+string splitLinesForWidth(string input, in string suffix, in string indent,
+                        in size_t width=wrapWidth) pure
 {
     string res;
     size_t w;

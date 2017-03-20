@@ -22,7 +22,7 @@ mixin template nativeImpl(wl_native)
 }
 
 
-immutable abstract class WlInterface
+immutable class WlInterface
 {
     immutable wl_interface* _native;
 
@@ -50,11 +50,11 @@ immutable abstract class WlInterface
  +  The try-catch statement will print a warning if an exception is thrown.
  +  The try-catch statement will terminate runtime and exit program if an error is thrown.
  +/
-void nothrowFnWrapper(alias fn)() nothrow
+auto nothrowFnWrapper(alias fn)() nothrow
 {
     try
     {
-        fn();
+        return fn();
     }
     catch(Exception ex)
     {
@@ -66,12 +66,41 @@ void nothrowFnWrapper(alias fn)() nothrow
     {
         import core.runtime : Runtime;
         import core.stdc.stdlib : exit;
-        import core.runtime : Runtime;
         import std.exception : collectException;
         import std.stdio : stderr;
         collectException(stderr.writeln("wayland-d: aborting due to error in listener stub: "~err.msg));
         collectException(Runtime.terminate());
         exit(1);
+    }
+    alias rt = typeof(fn());
+    static if (!is(rt == void))
+    {
+        return rt.init;
+    }
+}
+
+
+
+/// static cache of objects that are looked-up by the address of their native
+/// counter part
+struct ObjectCache
+{
+    private __gshared Object[void*] _cache;
+
+    static void set (void* native, Object obj)
+    {
+        _cache[native] = obj;
+    }
+
+    static Object get (void* native)
+    {
+        auto op = native in _cache;
+        return op ? *op : null;
+    }
+
+    static void remove (void* native)
+    {
+        _cache.remove(native);
     }
 }
 
