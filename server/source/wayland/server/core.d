@@ -348,7 +348,6 @@ private extern(C) nothrow
     void wl_d_display_destroy(wl_listener*, void* data)
     {
         nothrowFnWrapper!({
-            writeln("wl_d_display_destroy");
             auto dpy = cast(WlDisplayBase)ObjectCache.get(data);
             assert(dpy, "wl_d_display_destroy: could not get display from cache");
             if (dpy._destroySig) dpy._destroySig.emit();
@@ -359,7 +358,6 @@ private extern(C) nothrow
     void wl_d_client_created(wl_listener*, void* data)
     {
         nothrowFnWrapper!({
-            writeln("wl_d_client_created");
             auto natCl = cast(wl_client*)data;
             auto natDpy = wl_client_get_display(natCl);
             auto dpy = cast(WlDisplayBase)ObjectCache.get(natDpy);
@@ -374,7 +372,6 @@ private extern(C) nothrow
     void wl_d_client_destroy(wl_listener*, void* data)
     {
         nothrowFnWrapper!({
-            writeln("wl_d_client_destroy");
             auto natCl = cast(wl_client*)data;
             auto natDpy = wl_client_get_display(natCl);
             auto dpy = cast(WlDisplayBase)ObjectCache.get(natDpy);
@@ -404,7 +401,9 @@ private extern(C) nothrow
     {
         nothrowFnWrapper!({
             auto natRes = cast(wl_resource*)data;
-            writeln("wl_d_resource_destroy: ", fromStringz(wl_resource_get_class(natRes)));
+
+            auto res = cast(WlResource)ObjectCache.get(natRes);
+            if (res && res._destroySig) res._destroySig.emit(res);
 
             ObjectCache.remove(natRes);
         });

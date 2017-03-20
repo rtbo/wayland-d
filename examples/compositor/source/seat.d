@@ -3,13 +3,30 @@ module seat;
 import compositor;
 import wayland.server;
 
+import std.algorithm;
+
 class Seat : WlSeat
 {
     Compositor comp;
+    ClPointer[] pointers;
 
     this(Compositor comp)
     {
         super(comp.display, ver);
+        this.comp = comp;
+    }
+
+    void mouseButton(WlClient cl, int button, WlPointer.ButtonState state)
+    {
+        foreach(p; pointers)
+        {
+            if (p.client is cl)
+            {
+                auto serial = comp.display.nextSerial();
+                auto time = cast(uint)comp.time.total!"msecs";
+                p.sendButton(serial, time, button, state);
+            }
+        }
     }
 
     override Resource bind(WlClient cl, uint ver, uint id)
@@ -25,7 +42,9 @@ class Seat : WlSeat
 
     override WlPointer getPointer(WlClient cl, Resource res, uint id)
     {
-        return new ClPointer(cl, id);
+        auto p = new ClPointer(this, cl, id);
+        pointers ~= p;
+        return p;
     }
 
     override WlTouch getTouch(WlClient cl, Resource res, uint id)
@@ -44,7 +63,9 @@ class Seat : WlSeat
 
 class ClPointer : WlPointer
 {
-    this(WlClient cl, uint id)
+    Seat seat;
+
+    this(Seat seat, WlClient cl, uint id)
     {
         super(cl, ver, id);
     }
@@ -58,7 +79,9 @@ class ClPointer : WlPointer
 
 
     override protected void release(WlClient cl)
-    {}
+    {
+        seat.pointers = seat.pointers.remove!(p => p is this);
+    }
 }
 
 class ClKeyboard : WlKeyboard

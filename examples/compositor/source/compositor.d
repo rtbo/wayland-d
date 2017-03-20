@@ -14,6 +14,7 @@ import std.stdio;
 import std.process;
 import std.format;
 import std.exception;
+import core.time;
 
 
 class Compositor : WlCompositor
@@ -28,6 +29,8 @@ class Compositor : WlCompositor
 		WlClient[] _clients;
 		Output[] _outputs;
 		uint _outputMaskShift;
+
+		MonoTime _startTime;
 	}
 
 	this(WlDisplay display)
@@ -36,6 +39,12 @@ class Compositor : WlCompositor
 		super(display, ver);
 		_seat = new Seat(this);
 		_shell = new Shell(this);
+		_startTime = MonoTime.currTime;
+	}
+
+	@property Duration time()
+	{
+		return MonoTime.currTime - _startTime;
 	}
 
 	@property WlDisplay display()
@@ -76,8 +85,10 @@ class Compositor : WlCompositor
     void eventMouseMove(int x, int y)
 	{}
 
-    void eventMouseButton(int button, Flag!"down" down)
-	{}
+    void eventMouseButton(int x, int y, int button, WlPointer.ButtonState state)
+	{
+		_shell.mouseButton(x, y, button, state);
+	}
 
     void eventKey(int key, Flag!"down" down)
 	{}
@@ -134,7 +145,6 @@ private:
 
 	void addClient(WlClient cl)
 	{
-		writeln("addClient");
 		_clients ~= cl;
 		cl.addDestroyListener(&removeClient);
 		// Some interfaces are implemented by libwayland-server (i.e. wl_shm, wl_shm_pool).
@@ -150,7 +160,6 @@ private:
 
 	void removeClient(WlClient cl)
 	{
-		writeln("removeClient");
 		_clients = _clients.remove!(c => c is cl);
 	}
 }
@@ -331,7 +340,9 @@ class Surface : WlSurface
 	// WlSurface
 
 	override protected void destroy(WlClient cl)
-	{}
+	{
+
+	}
 
     override protected void attach(WlClient cl,
                                    WlBuffer buffer,
@@ -375,7 +386,6 @@ class Surface : WlSurface
 
     override protected void commit(WlClient cl)
 	{
-		writeln("commit");
 		_pending.flushTo(_state);
 		scheduleRepaint();
 	}

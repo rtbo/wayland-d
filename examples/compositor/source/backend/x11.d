@@ -6,6 +6,7 @@ import output;
 
 import wayland.server;
 import wayland.util.shm_helper;
+import linux.input;
 import xcb.xcb;
 import xcb.xkb;
 import xcb.shm;
@@ -115,6 +116,10 @@ private:
             auto respType = ev.response_type & ~0x80;
             switch(respType)
             {
+            case XCB_BUTTON_PRESS:
+            case XCB_BUTTON_RELEASE:
+                deliverButtonEvent(cast(xcb_button_press_event_t*)ev);
+                break;
             case XCB_CLIENT_MESSAGE:
                 auto clEv = cast(xcb_client_message_event_t*)ev;
                 auto atom = clEv.data.data32[0];
@@ -140,6 +145,30 @@ private:
             ++count;
         }
         return count;
+    }
+
+    void deliverButtonEvent(xcb_button_press_event_t* ev)
+    {
+        uint but;
+        switch (ev.detail) {
+        case 1:
+            but = BTN_LEFT;
+            break;
+        case 2:
+            but = BTN_MIDDLE;
+            break;
+        case 3:
+            but = BTN_RIGHT;
+            break;
+        default:
+            stderr.writeln("X11 backend unknown button code: ", ev.detail);
+            break;
+        }
+
+        immutable state = ev.response_type == XCB_BUTTON_PRESS ?
+            WlPointer.ButtonState.pressed : WlPointer.ButtonState.released;
+
+        comp.eventMouseButton(ev.event_x, ev.event_y, but, state);
     }
 
     void destroyOutput(X11Output op)

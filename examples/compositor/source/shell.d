@@ -6,16 +6,38 @@ import wayland.server;
 
 import std.stdio;
 import std.algorithm;
+import std.range;
 
 class Shell : WlShell
 {
     Compositor comp;
     ShellSurface[] topLevels;
 
-    this(Compositor comp)
+    this (Compositor comp)
     {
         super(comp.display, ver);
         this.comp = comp;
+    }
+
+    void addTopLevel(ShellSurface ss)
+    {
+        topLevels ~= ss;
+        ss.addDestroyListener((WlResource res) {
+            topLevels = topLevels.remove!(tl => res is tl);
+        });
+    }
+
+    void mouseButton(int x, int y, int button, WlPointer.ButtonState state)
+    {
+        foreach(tl; retro(topLevels))
+        {
+            if (x >= tl.x && x < tl.x+tl.width &&
+                y >= tl.y && y < tl.y+tl.height)
+            {
+                comp.seat.mouseButton(tl.client, button, state);
+                break;
+            }
+        }
     }
 
     // paint windows over background (last inserted on top)
@@ -39,6 +61,9 @@ class Shell : WlShell
                 tl.y = (oh - sb.height) / 2;
                 tl.unplaced = false;
             }
+
+            tl.width = sb.width;
+            tl.height = sb.height;
 
             if (tl.x > ow) break;
 
@@ -119,6 +144,7 @@ class ShellSurface : WlShellSurface
     Compositor comp;
     bool unplaced = true;
     int x; int y;
+    int width; int height;
 
     this(WlClient cl, uint id, Surface surf, WlShell.Resource shRes, Compositor comp)
     {
@@ -157,7 +183,7 @@ class ShellSurface : WlShellSurface
             surf.assignRole("shell");
             auto output = comp.outputs[0];
             surf.outputMask = surf.outputMask | output.mask;
-            shell.topLevels ~= this;
+            shell.addTopLevel(this);
         }
         catch (Exception ex)
         {
