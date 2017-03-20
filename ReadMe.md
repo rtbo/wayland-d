@@ -10,11 +10,11 @@ Have several components:
    - support for client and server side code generation.
    - support foreign protocols (such as `xdg-shell`. See the [simple-egl example](https://github.com/rtbo/wayland-d/blob/master/examples/simple_egl/source/simple_egl.d))
 
- - __*Client*__: client protocol and libwayland-client native API wrapped into higher level objects.
+ - __*Client*__: client protocol and `libwayland-client` native API wrapped into higher level objects.
 
  - __*EGL*__: allow use of wayland-egl (see [this example](https://github.com/rtbo/wayland-d/blob/master/examples/simple_egl/source/simple_egl.d)).
 
- - __*Server*__: in progress, see the [server branch](https://github.com/rtbo/wayland-d/tree/server).
+ - __*Server*__: server side protocol and bindings to `libwayland-server` to allow the creation of a compositor.
 
 
 ## Client usage
