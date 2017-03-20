@@ -1,6 +1,7 @@
 module backend;
 
 import output;
+import compositor;
 import wayland.server;
 
 import std.typecons : Flag;
@@ -17,25 +18,6 @@ class BackendConfig
     bool fullscreen;
     // used if not fullscreen
     int width, height;
-}
-
-/// Interface that must be implemented by the compositor and supplied to the
-/// backend. The backend send events and request data to the compositor using
-/// this interface.
-interface CompositorBackendInterface
-{
-    @property WlDisplay display();
-
-    void exit();
-
-
-    void eventExpose();
-
-    void eventMouseMove(int x, int y);
-
-    void eventMouseButton(int button, Flag!"down" down);
-
-    void eventKey(int key, Flag!"down" down);
 }
 
 /// Interface that must implement backends.
@@ -58,7 +40,7 @@ interface Backend
     @property string name();
 
 
-    void initialize(BackendConfig config, CompositorBackendInterface comp);
+    void initialize(BackendConfig config, Compositor comp);
 
     Output createOutput();
 

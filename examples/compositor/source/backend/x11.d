@@ -1,24 +1,31 @@
 module backend.x11;
 
 import backend;
+import compositor;
 import output;
 
 import wayland.server;
+import wayland.util.shm_helper;
 import xcb.xcb;
 import xcb.xkb;
+import xcb.shm;
 import X11.Xlib;
 import X11.Xlib_xcb;
 import xkbcommon.xkbcommon;
 import xkbcommon.x11;
 
+import std.exception;
+import std.stdio;
 import core.stdc.stdlib;
+import core.sys.posix.sys.mman;
+import core.sys.posix.unistd;
 
 /// X11 backend implementation
 final class X11Backend : Backend
 {
     private {
         BackendConfig config;
-        CompositorBackendInterface comp;
+        Compositor comp;
 
         WlEventLoop loop;
         WlFdEventSource xcbSource;
@@ -36,7 +43,7 @@ final class X11Backend : Backend
         return "x11";
     }
 
-    override void initialize(BackendConfig config, CompositorBackendInterface comp)
+    override void initialize(BackendConfig config, Compositor comp)
     {
         this.config = config;
         this.comp = comp;
@@ -68,6 +75,7 @@ final class X11Backend : Backend
     override Output createOutput()
     {
         auto res = new X11Output(this);
+        res.initShm();
         _outputs ~= res;
         return res;
     }
@@ -162,6 +170,41 @@ struct WmNormalHints
 	int winGravity;
 }
 
+
+xcb_visualtype_t* findVisualById(xcb_screen_t* screen, xcb_visualid_t id)
+{
+	xcb_depth_iterator_t i;
+	xcb_visualtype_iterator_t j;
+	for (i = xcb_screen_allowed_depths_iterator(screen);
+	     i.rem;
+	     xcb_depth_next(&i)) {
+		for (j = xcb_depth_visuals_iterator(i.data);
+		     j.rem;
+		     xcb_visualtype_next(&j)) {
+			if (j.data.visual_id == id)
+				return j.data;
+		}
+	}
+	return null;
+}
+
+ubyte getDepthOfVisual(xcb_screen_t* screen, xcb_visualid_t id)
+{
+	xcb_depth_iterator_t i;
+	xcb_visualtype_iterator_t j;
+	for (i = xcb_screen_allowed_depths_iterator(screen);
+	     i.rem;
+	     xcb_depth_next(&i)) {
+		for (j = xcb_depth_visuals_iterator(i.data);
+		     j.rem;
+		     xcb_visualtype_next(&j)) {
+			if (j.data.visual_id == id)
+				return i.data.depth;
+		}
+	}
+	return 0;
+}
+
 final class X11Output : Output
 {
     private X11Backend _backend;
@@ -175,9 +218,15 @@ final class X11Output : Output
     private int _heightDPI;
     private xcb_window_t _win;
 
+    private ubyte _depth;
+    private xcb_format_t* _xcbFmt;
+    private int _shmFd;
+    private xcb_shm_seg_t _shmSeg;
+    private uint[] _buf;
+    private xcb_gcontext_t _gc;
+
     this (X11Backend backend)
     {
-        super(backend.comp.display);
         _backend = backend;
         _conn = backend.conn;
         _screen = backend.defaultScreen;
@@ -187,6 +236,8 @@ final class X11Output : Output
         _height = backend.config.height;
         _widthDPI = cast(int) (25.4 * _screen.width_in_pixels) / _screen.width_in_millimeters;
         _heightDPI = cast(int) (25.4 * _screen.height_in_pixels) / _screen.height_in_millimeters;
+
+        super(backend.comp);
 
         assert(_fullscreen || _width*_height > 0);
 
@@ -250,6 +301,40 @@ final class X11Output : Output
         xcb_flush(_conn);
     }
 
+    void initShm()
+    {
+        auto shmExt = xcb_get_extension_data(_conn, &xcb_shm_id);
+        enforce(shmExt && shmExt.present);
+        auto visType = findVisualById(_screen, _screen.root_visual);
+        _depth = getDepthOfVisual(_screen, _screen.root_visual);
+
+        for (auto fmt = xcb_setup_pixmap_formats_iterator(xcb_get_setup(_conn));
+                fmt.rem;
+                xcb_format_next(&fmt)) {
+            if (fmt.data.depth == _depth) {
+                _xcbFmt = fmt.data;
+                break;
+            }
+        }
+        enforce(_xcbFmt && _xcbFmt.bits_per_pixel == 32);
+
+        immutable segSize = _width*_height*4;
+
+        _shmFd = createMmapableFile(segSize);
+        auto ptr = cast(ubyte*)enforce(mmap(
+            null, segSize, PROT_READ | PROT_WRITE, MAP_SHARED, _shmFd, 0
+        ));
+        _buf = cast(uint[])(ptr[0 .. segSize]);
+        _shmSeg = xcb_generate_id(_conn);
+        auto err = xcb_request_check(_conn, xcb_shm_attach_fd_checked(
+            _conn, _shmSeg, _shmFd, 0
+        ));
+        enforce(!err);
+
+        _gc = xcb_generate_id(_conn);
+        xcb_create_gc(_conn, _gc, _win, 0, null);
+    }
+
     override @property int width()
     {
         return _width;
@@ -258,6 +343,27 @@ final class X11Output : Output
     override @property int height()
     {
         return _height;
+    }
+
+    override @property uint[] buf()
+    {
+        return _buf;
+    }
+
+    override void blitBuf()
+    {
+	    auto err = xcb_request_check(_conn,
+            xcb_shm_put_image_checked(
+                _conn, _win, _gc,
+                cast(ushort)_width, cast(ushort)_height, 0, 0,
+                cast(ushort)_width, cast(ushort)_height, 0, 0,
+                _depth, XCB_IMAGE_FORMAT_Z_PIXMAP,
+                0, _shmSeg, 0
+            )
+        );
+        if (err) {
+            stderr.writeln("error while blitting x11");
+        }
     }
 
     override void destroy()
