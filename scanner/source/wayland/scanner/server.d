@@ -429,7 +429,7 @@ class ServerInterface : Interface
     {
         sf.writeln("class Resource : WlResource");
         sf.bracedBlock!({
-            writeResourceCtor(sf, []);
+            writeResourceCtors(sf, []);
             foreach(ev; svEvents)
             {
                 sf.writeln();
@@ -441,7 +441,7 @@ class ServerInterface : Interface
     void writeResourceCode(SourceFile sf)
     {
         sf.writeln();
-        writeResourceCtor(sf, ["protected"]);
+        writeResourceCtors(sf, ["protected"]);
         foreach(rq; svRequests)
         {
             sf.writeln();
@@ -455,9 +455,10 @@ class ServerInterface : Interface
         }
     }
 
-    void writeResourceCtor(SourceFile sf, string[] attrs)
+    void writeResourceCtors(SourceFile sf, string[] attrs)
     {
-        sf.writeln("%s this(WlClient cl, uint ver, uint id)", attrs.join(" "));
+        immutable attrStr = attrs.join(" ") ~ (attrs.length ? " " : "");
+        sf.writeln("%sthis(WlClient cl, uint ver, uint id)", attrStr);
         sf.bracedBlock!({
             immutable natExpr = "wl_resource_create(cl.native, iface.native, ver, id)";
             if (requests.length)
@@ -473,6 +474,11 @@ class ServerInterface : Interface
             {
                 sf.writeln("super(%s);", natExpr);
             }
+        });
+        sf.writeln();
+        sf.writeln("%sthis(wl_resource* natRes)", attrStr);
+        sf.bracedBlock!({
+            sf.writeln("super(natRes);");
         });
     }
 
