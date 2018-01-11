@@ -27,7 +27,7 @@
 			"name": "dynamic",
 			"versions": ["WlDynamic"],
 			"dependencies": {
-				"derelict-util": "~>2.0.0"
+				"derelict-util": "~>2.0"
 			}
 		}
 	]
