@@ -1,5 +1,5 @@
 {
-	"name": "wayland-d",
+	"name": "wayland",
 	"targetType": "none",
 	"authors": [
 		"Rémi Thebault"

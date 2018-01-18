@@ -8,7 +8,7 @@
 	"license": "MIT",
 
 	"dependencies": {
-		"wayland-d:client": {
+		"wayland:client": {
 			"path": "../client"
 		}
 	},
@@ -19,7 +19,7 @@
 			"versions": ["WlStatic"],
 			"libs": ["wayland-cursor"],
 			"subConfigurations": {
-				"wayland-d:client": "static"
+				"wayland:client": "static"
 			}
 		},
 		{
@@ -29,7 +29,7 @@
 				"derelict-util": "~>2.0"
 			},
 			"subConfigurations": {
-				"wayland-d:client": "dynamic"
+				"wayland:client": "dynamic"
 			}
 		}
 	]

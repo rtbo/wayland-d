@@ -16,7 +16,7 @@ declare -a DEPENDS=(
 for d in ${DEPENDS[@]}; do
     if [ $TARGET -ot ${d} ]; then
         cd $WL_D_DIR
-        dub run wayland-d:scanner --build=release -- \
+        dub run wayland:scanner --build=release -- \
                         -c server \
                         -m wayland.server.protocol \
                         -i $PROTOCOL \

@@ -128,7 +128,7 @@ private:
 			spawnProcess([
 				"wayland-tracker", "simple",
 				"-x", "protocol/wayland.xml",
-				"--", "examples/hello/wayland-d_hello"
+				"--", "examples/hello/wayland_hello"
 			]);
 			return 1;
 		});

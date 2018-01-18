@@ -7,7 +7,7 @@
 	"copyright": "Copyright © 2017, Rémi Thebault",
 	"license": "MIT",
 	"dependencies": {
-		"wayland-d:client": {
+		"wayland:client": {
 			"path": "../client"
 		}
 	},

@@ -13,7 +13,7 @@
 		"cat $PACKAGE_DIR/images/window.bin $PACKAGE_DIR/images/fish.bin > $PACKAGE_DIR/views/images.bin"
 	],
 	"dependencies": {
-		"wayland-d:client": {
+		"wayland:client": {
 			"path": "../../client"
 		}
 	},
@@ -22,14 +22,14 @@
 			"name": "static",
 			"versions": ["WlStatic"],
 			"subConfigurations": {
-				"wayland-d:client": "static"
+				"wayland:client": "static"
 			}
 		},
 		{
 			"name": "dynamic",
 			"versions": ["WlDynamic"],
 			"subConfigurations": {
-				"wayland-d:client": "dynamic"
+				"wayland:client": "dynamic"
 			}
 		}
 	]

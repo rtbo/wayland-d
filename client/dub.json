@@ -7,7 +7,7 @@
 	"copyright": "Copyright © 2017, Rémi Thebault",
 	"license": "MIT",
 	"dependencies": {
-		"wayland-d": { "path": ".." }
+		"wayland": { "path": ".." }
 	},
 	"preGenerateCommands": [
 		"bash $PACKAGE_DIR/gen_protocol.sh"
