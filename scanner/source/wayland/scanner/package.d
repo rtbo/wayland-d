@@ -15,7 +15,7 @@ import std.array;
 import std.getopt;
 import std.stdio;
 
-enum scannerVersion = "v0.0.4";
+enum scannerVersion = "v0.1.0";
 enum usageIntro = "wayland:scanner-"~scannerVersion~"\n"~
                   "  A Wayland protocol scanner and D code generator.\n\n";
 enum bindingsCopyright = "Copyright © 2017 Rémi Thebault";
