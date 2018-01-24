@@ -856,7 +856,7 @@ private {
         // input
 
         @property bool empty() const {
-            return fpos == arr.size / T.sizeof || bpos == 0;
+            return fpos == bpos;
         }
 
         @property inout(T)* front() inout {
@@ -889,11 +889,11 @@ private {
         // random access
 
         @property size_t length() const {
-            return arr.size / T.sizeof;
+            return bpos - fpos;
         }
 
         inout(T)* opIndex(size_t n) inout {
-            return cast(inout(T)*)(arr.data + n*T.sizeof);
+            return cast(inout(T)*)(arr.data + (fpos+n)*T.sizeof);
         }
 
     }
