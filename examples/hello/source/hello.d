@@ -39,6 +39,7 @@ class Hello
 	WlDisplay display;
 	WlCompositor compositor;
 	WlPointer pointer;
+	WlKeyboard kbd;
 	WlSeat seat;
 	WlShell shell;
 	WlShm shm;
@@ -90,11 +91,37 @@ class Hello
 			seat = cast(WlSeat)reg.bind(
 				name, WlSeat.iface, min(ver, 2)
 			);
+			seat.onCapabilities = &seatCapChanged;
+		}
+	}
+
+	void seatCapChanged (WlSeat seat, WlSeat.Capability cap)
+	{
+		if ((cap & WlSeat.Capability.pointer) && !pointer)
+		{
+			writeln("setup");
 			pointer = seat.getPointer();
 			pointer.onEnter = &pointerEnter;
 			pointer.onButton = &pointerButton;
 		}
+		else if (!(cap & WlSeat.Capability.pointer) && pointer)
+		{
+			pointer.destroy();
+			pointer = null;
+		}
+
+		if ((cap & WlSeat.Capability.keyboard) && !kbd)
+		{
+			kbd = seat.getKeyboard();
+			kbd.onKey = &kbdKey;
+		}
+		else if (!(cap & WlSeat.Capability.keyboard) && kbd)
+		{
+			kbd.destroy();
+			kbd = null;
+		}
 	}
+
 
 	void makeMemPool(immutable(ubyte)[] imgData)
 	{
@@ -152,6 +179,14 @@ class Hello
 		doneFlag = true;
 	}
 
+	void kbdKey(WlKeyboard keyboard, uint serial, uint time, uint key,
+			WlKeyboard.KeyState state)
+	{
+		import linux.input : KEY_ESC;
+
+		if (key == KEY_ESC && state) doneFlag = true;
+	}
+
 	void loop()
 	{
 		while (!doneFlag)
@@ -175,6 +210,7 @@ class Hello
 		munmap(poolMem, poolSize);
 		close(poolFd);
 		pointer.destroy();
+		kbd.destroy();
 		seat.destroy();
 		shell.destroy();
 		shm.destroy();
