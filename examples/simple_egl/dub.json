@@ -10,6 +10,9 @@
 	"preGenerateCommands": [
 		"dub run wayland:scanner -- -m zxdg_shell_v6 -i $PACKAGE_DIR/xdg-shell-unstable-v6.xml -o $PACKAGE_DIR/source/zxdg_shell_v6.d"
 	],
+	"sourceFiles": [
+		"source/zxdg_shell_v6.d"
+	],
 	"dependencies": {
 		"wayland:client": { "path": "../../client" },
 		"wayland:egl": { "path": "../../egl" },

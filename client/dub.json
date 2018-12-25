@@ -16,6 +16,9 @@
 		"source",
 		"../common"
 	],
+	"sourceFiles": [
+		"source/wayland/client/protocol.d"
+	],
 	"importPaths": [
 		"source",
 		"../common"
