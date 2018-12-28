@@ -1039,8 +1039,23 @@ class SourceFile
         immutable indStr = indentStr(_indentLev);
         _output.writeln(indStr, "/++");
         foreach (l; text.split("\n")) {
-            if (l.empty) _output.writeln(indStr, " +");
-            else _output.writeln(indStr, " +  ", l);
+            if (l.empty) {
+                _output.writeln(indStr, " +");
+            }
+            else {
+                _output.writeln(indStr, " +  ");
+                foreach (dchar c; l) {
+                    switch (c) {
+                    case '(': _output.write("$(LPAREN)"); break;
+                    case ')': _output.write("$(RPAREN)"); break;
+                    case '<': _output.write("&lt;"); break;
+                    case '>': _output.write("&gt;"); break;
+                    case '&': _output.write("&amp;"); break;
+                    default: _output.write(c); break;
+                    }
+                }
+                _output.writeln();
+            }
         }
         _output.writeln(indStr, " +/");
     }
