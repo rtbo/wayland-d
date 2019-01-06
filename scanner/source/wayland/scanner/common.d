@@ -1043,7 +1043,7 @@ class SourceFile
                 _output.writeln(indStr, " +");
             }
             else {
-                _output.writeln(indStr, " +  ");
+                _output.write(indStr, " +  ");
                 foreach (dchar c; l) {
                     switch (c) {
                     case '(': _output.write("$(LPAREN)"); break;
