@@ -24,7 +24,7 @@ mixin template nativeImpl(wl_native)
 
 immutable class WlInterface
 {
-    immutable wl_interface* _native;
+    private immutable wl_interface* _native;
 
     immutable this(immutable wl_interface* native)
     {
@@ -43,7 +43,17 @@ immutable class WlInterface
     }
 }
 
-/+
+/++
+ +  Check for equality between two interfaces
+ +/
+bool wlIfaceEquals(immutable(WlInterface) a, immutable(WlInterface) b)
+{
+    import core.stdc.string : strcmp;
+
+    return a is b || strcmp(a._native.name, b._native.name) == 0;
+}
+
+/++
  +  Wraps a function literal into a try-catch statement.
  +
  +  Use this in functions called by C as exception cannot propagate there.
