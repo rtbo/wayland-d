@@ -136,7 +136,17 @@ abstract class WlDisplayBase : WlProxy, Native!wl_display
         return wl_display_get_error(native);
     }
 
-    //uint wl_display_get_protocol_error(wl_display* display, const(wl_interface)** iface, uint* id);
+    final immutable(WlInterface) getProtocolError(out uint code, out uint id)
+    {
+        const(wl_interface)* iface = null;
+        code = wl_display_get_protocol_error(native, &iface, &id);
+        if (iface) {
+            return new immutable WlInterface(cast(immutable)iface);
+        }
+        else {
+            return null;
+        }
+    }
 
     final int flush()
     {
