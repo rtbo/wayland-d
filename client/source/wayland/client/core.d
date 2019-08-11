@@ -83,10 +83,15 @@ abstract class WlDisplayBase : WlProxy, Native!wl_display
 
     static WlDisplay connect(in string name = null)
     {
+        import std.exception : enforce, ErrnoException;
         import std.string : toStringz;
+
         const(char)* displayName = name.length ? toStringz(name) : null;
-        auto nativeDpy = wl_display_connect(displayName);
-        return nativeDpy ? new WlDisplay(nativeDpy) : null;
+        auto nativeDpy = enforce!ErrnoException(
+            wl_display_connect(displayName),
+            "Could not get a display handle from Wayland"
+        );
+        return new WlDisplay(nativeDpy);
     }
 
     static WlDisplay connectToFd(in int fd)
