@@ -350,7 +350,7 @@ abstract class Arg
             case ArgType.String:
                 return "string";
             case ArgType.NewId:
-                return "uint";
+                return "wl_proxy*";
             case ArgType.Array:
                 return "wl_array*"; // ?? let's check this later
             case ArgType.Fd:
@@ -374,7 +374,7 @@ abstract class Arg
             case ArgType.Object:
                 assert(false, "unimplemented");
             case ArgType.NewId:
-                return "uint";
+                return "wl_proxy*";
             case ArgType.Array:
                 return "wl_array*";
             case ArgType.Fd:

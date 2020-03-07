@@ -52,10 +52,10 @@ class ClientArg : Arg
             case ArgType.UInt:
             case ArgType.Fixed:
             case ArgType.String:
-            case ArgType.NewId:
             case ArgType.Array:
             case ArgType.Fd:
                 return Arg.dType;
+            case ArgType.NewId:
             case ArgType.Object:
                 if (iface.length)
                     return ifaceDName(iface);
@@ -71,10 +71,10 @@ class ClientArg : Arg
             case ArgType.UInt:
             case ArgType.Fixed:
             case ArgType.String:
-            case ArgType.NewId:
             case ArgType.Array:
             case ArgType.Fd:
                 return Arg.cCastExpr;
+            case ArgType.NewId:
             case ArgType.Object:
                 return format("%s.proxy", paramName);
         }
@@ -87,10 +87,10 @@ class ClientArg : Arg
             case ArgType.UInt:
             case ArgType.Fixed:
             case ArgType.String:
-            case ArgType.NewId:
             case ArgType.Array:
             case ArgType.Fd:
                 return Arg.cType;
+            case ArgType.NewId:
             case ArgType.Object:
                 return "wl_proxy*";
         }
@@ -103,10 +103,10 @@ class ClientArg : Arg
             case ArgType.UInt:
             case ArgType.Fixed:
             case ArgType.String:
-            case ArgType.NewId:
             case ArgType.Array:
             case ArgType.Fd:
                 return Arg.cType;
+            case ArgType.NewId:
             case ArgType.Object:
                 if (iface.empty) return "void*";
                 else return "wl_proxy*";
@@ -120,10 +120,14 @@ class ClientArg : Arg
             case ArgType.UInt:
             case ArgType.Fixed:
             case ArgType.String:
-            case ArgType.NewId:
             case ArgType.Array:
             case ArgType.Fd:
                 return Arg.dCastExpr(parentIface);
+            case ArgType.NewId:
+                if (iface)
+                    return format("new %s(%s)", ifaceDName(iface), paramName);
+                else
+                    return format("WlProxy.get(%s)", paramName);
             case ArgType.Object:
                 auto expr = format("WlProxy.get(%s)", paramName);
                 if (iface)
