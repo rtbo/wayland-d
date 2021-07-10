@@ -1,0 +1,14 @@
+.dub/
+dub.selections.json
+*.a
+*.bin
+protocol.d
+
+# Dub executables
+
+scanner/wayland_scanner
+
+examples/connect/wayland_connect
+examples/hello/wayland_hello
+examples/list_registry/wayland_list_registry
+examples/simple_egl/wayland_simple_egl

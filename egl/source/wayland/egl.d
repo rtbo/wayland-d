@@ -24,9 +24,9 @@ class WlEglWindow : Native!wl_egl_window
         wl_egl_window_resize(_native, width, height, dx, dy);
     }
 
-    @property uint[2] attachedSize()
+    @property int[2] attachedSize()
     {
-        uint[2] wh = -1;
+        int[2] wh = -1;
         wl_egl_window_get_attached_size(_native, &wh[0], &wh[1]);
         return wh;
     }

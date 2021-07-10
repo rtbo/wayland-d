@@ -14,7 +14,7 @@
 	],
 	"dependencies": {
 		"wayland:client": {
-			"path": "../../client"
+			"path": "../.."
 		}
 	},
 	"configurations": [

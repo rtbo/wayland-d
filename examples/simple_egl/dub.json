@@ -14,9 +14,9 @@
 		"source/zxdg_shell_v6.d"
 	],
 	"dependencies": {
-		"wayland:client": { "path": "../../client" },
-		"wayland:egl": { "path": "../../egl" },
-		"wayland:cursor": { "path": "../../cursor" },
+		"wayland:client": { "path": "../.." },
+		"wayland:egl": { "path": "../.." },
+		"wayland:cursor": { "path": "../.." },
 		"derelict-gles": {
 			"comment": "patched version of derelict-gles is needed",
 			"path": "../../3rdparty/DerelictGLES"
