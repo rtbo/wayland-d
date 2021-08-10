@@ -42,6 +42,7 @@ extern(C)
     struct wl_shm_buffer;
     struct wl_shm_pool;
     struct wl_protocol_logger;
+    struct wl_proxy;
 
     struct wl_protocol_logger_message {
         wl_resource* resource;
