@@ -2,6 +2,7 @@ module seat;
 
 import compositor;
 import wayland.server;
+import wayland.native.server;
 
 import std.algorithm;
 
@@ -40,21 +41,21 @@ class Seat : WlSeat
         return res;
     }
 
-    override WlPointer getPointer(WlClient cl, Resource res, uint id)
+    override WlPointer getPointer(WlClient cl, Resource res, wl_proxy* id)
     {
-        auto p = new ClPointer(this, cl, id);
+        auto p = new ClPointer(this, cl, cast(uint)id);
         pointers ~= p;
         return p;
     }
 
-    override WlTouch getTouch(WlClient cl, Resource res, uint id)
+    override WlTouch getTouch(WlClient cl, Resource res, wl_proxy* id)
     {
         return null;
     }
 
-    override WlKeyboard getKeyboard(WlClient cl, Resource res, uint id)
+    override WlKeyboard getKeyboard(WlClient cl, Resource res, wl_proxy* id)
     {
-        return new ClKeyboard(cl, id);
+        return new ClKeyboard(cl, cast(uint)id);
     }
 
     override void release(WlClient cl, Resource res)

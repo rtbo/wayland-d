@@ -3,6 +3,7 @@ module shell;
 import compositor;
 import output;
 import wayland.server;
+import wayland.native.server;
 
 import std.stdio;
 import std.algorithm;
@@ -130,9 +131,9 @@ class Shell : WlShell
 
     // WlShell
 
-    override WlShellSurface getShellSurface(WlClient cl, Resource res, uint id, WlSurface surf)
+    override WlShellSurface getShellSurface(WlClient cl, Resource res, wl_proxy* id, WlSurface surf)
     {
-        return new ShellSurface(cl, id, cast(Surface)surf, res, comp);
+        return new ShellSurface(cl, cast(uint)id, cast(Surface)surf, res, comp);
     }
 }
 

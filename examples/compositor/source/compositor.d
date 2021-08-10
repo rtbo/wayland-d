@@ -102,14 +102,14 @@ class Compositor : WlCompositor
 
 	// WlCompositor
 
-	override WlSurface createSurface(WlClient cl, Resource, uint id)
+	override WlSurface createSurface(WlClient cl, Resource, wl_proxy* id)
 	{
-		return new Surface(this, cl, id);
+		return new Surface(this, cl, cast(uint)id);
 	}
 
-	override WlRegion createRegion(WlClient cl, Resource, uint id)
+	override WlRegion createRegion(WlClient cl, Resource, wl_proxy* id)
 	{
-		return new Region(cl, id);
+		return new Region(cl, cast(int)id);
 	}
 
 private:
@@ -367,7 +367,7 @@ class Surface : WlSurface
 	}
 
     override protected WlCallback frame(WlClient cl,
-                                  	   	uint callback)
+                                               wl_proxy* callback)
 	{
 		return null;
 	}
