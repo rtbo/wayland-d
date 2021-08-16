@@ -84,7 +84,7 @@ mixin template DomConvenienceFunctions() {
 	out(ret) {
 		assert(ret !is null);
 	}
-	body {
+	do {
 		auto e = cast(SomeElementType) getElementById(id);
 		if(e is null)
 			throw new ElementNotFoundException(SomeElementType.stringof, "id=" ~ id, file, line);
@@ -99,7 +99,7 @@ mixin template DomConvenienceFunctions() {
 	out(ret) {
 		assert(ret !is null);
 	}
-	body {
+	do {
 		auto e = cast(SomeElementType) querySelector(selector);
 		if(e is null)
 			throw new ElementNotFoundException(SomeElementType.stringof, selector, file, line);
@@ -194,7 +194,7 @@ mixin template DomConvenienceFunctions() {
 		out {
 			assert(this.children.length == 0);
 		}
-	body {
+	do {
 		children = null;
 	}
 	/// convenience function to quickly add a tag with some text or
@@ -208,7 +208,7 @@ mixin template DomConvenienceFunctions() {
 			assert(e.parentNode is this);
 			assert(e.parentDocument is this.parentDocument);
 		}
-	body {
+	do {
 		auto e = Element.make(tagName, childInfo, childInfo2);
 		// FIXME (maybe): if the thing is self closed, we might want to go ahead and
 		// return the parent. That will break existing code though.
@@ -228,7 +228,7 @@ mixin template DomConvenienceFunctions() {
 			assert(e.parentNode is this.parentNode);
 			assert(e.parentDocument is this.parentDocument);
 		}
-	body {
+	do {
 		auto e = Element.make(tagName, childInfo, childInfo2);
 		return parentNode.insertAfter(this, e);
 	}
@@ -269,7 +269,7 @@ mixin template DomConvenienceFunctions() {
 		assert(ret.parentDocument is this.parentDocument);
 		//assert(firstChild.parentDocument is this.parentDocument);
 	}
-	body {
+	do {
 		auto e = Element.make(tagName, "", info2);
 		e.appendChild(firstChild);
 		this.appendChild(e);
@@ -284,7 +284,7 @@ mixin template DomConvenienceFunctions() {
 		assert(ret.parentNode is this);
 		assert(ret.parentDocument is this.parentDocument);
 	}
-	body {
+	do {
 		auto e = Element.make(tagName, "", info2);
 		this.appendChild(e);
 		e.innerHTML = innerHtml.source;
@@ -308,7 +308,7 @@ mixin template DomConvenienceFunctions() {
 			assert(this.parentNode is newParent);
 			//assert(isInArray(this, newParent.children));
 		}
-	body {
+	do {
 		parentNode.removeChild(this);
 		newParent.appendChild(this);
 	}
@@ -332,7 +332,7 @@ mixin template DomConvenienceFunctions() {
 			assert(parentNode is null);
 			assert(children.length == 0);
 		}
-	body {
+	do {
 		foreach(c; children)
 			c.parentNode = null; // remove the parent
 		if(children.length)
@@ -352,7 +352,7 @@ mixin template DomConvenienceFunctions() {
 			assert(this.parentNode is null);
 			assert(var is this);
 		}
-	body {
+	do {
 		if(this.parentNode is null)
 			return this;
 
@@ -374,7 +374,7 @@ mixin template DomConvenienceFunctions() {
 			assert(this.parentNode is what);
 			assert(ret is what);
 		}
-	body {
+	do {
 		this.replaceWith(what);
 		what.appendChild(this);
 
@@ -386,7 +386,7 @@ mixin template DomConvenienceFunctions() {
 	in {
 		assert(this.parentNode !is null);
 	}
-	body {
+	do {
 		e.removeFromTree();
 		this.parentNode.replaceChild(this, e);
 		return e;
@@ -778,7 +778,7 @@ enum NodeType { Text = 3 }
 T require(T = Element, string file = __FILE__, int line = __LINE__)(Element e) if(is(T : Element))
 	in {}
 	out(ret) { assert(ret !is null); }
-body {
+do {
 	auto ret = cast(T) e;
 	if(ret is null)
 		throw new ElementNotFoundException(T.stringof, "passed value", file, line);
@@ -1257,7 +1257,7 @@ class Element {
 	out(ret) {
 		assert(ret is this);
 	}
-	body {
+	do {
 		if(parentDocument && parentDocument.loose)
 			name = name.toLower();
 		if(name in attributes)
@@ -1454,7 +1454,7 @@ class Element {
 		out {
 			assert(this.children.length == 0);
 		}
-	body {
+	do {
 		children = null;
 	}
 
@@ -1470,7 +1470,7 @@ class Element {
 			assert(e.parentDocument is this.parentDocument);
 			assert(e is ret);
 		}
-	body {
+	do {
 		selfClosed = false;
 		e.parentNode = this;
 		e.parentDocument = this.parentDocument;
@@ -1496,7 +1496,7 @@ class Element {
 			assert(what.parentDocument is this.parentDocument);
 			assert(ret is what);
 		}
-	body {
+	do {
 		foreach(i, e; children) {
 			if(e is where) {
 				children = children[0..i] ~ what ~ children[i..$];
@@ -1525,7 +1525,7 @@ class Element {
 			assert(what.parentDocument is this.parentDocument);
 			assert(ret is what);
 		}
-	body {
+	do {
 		foreach(i, e; children) {
 			if(e is where) {
 				children = children[0 .. i + 1] ~ what ~ children[i + 1 .. $];
@@ -1553,7 +1553,7 @@ class Element {
 			assert(replacement.parentNode is this);
 			assert(replacement.parentDocument is this.parentDocument);
 		}
-	body {
+	do {
 		foreach(ref c; this.children)
 			if(c is child) {
 				c.parentNode = null;
@@ -1604,7 +1604,7 @@ class Element {
 			//assert(isInArray(where, children));
 			//assert(isInArray(child, children));
 		}
-	body {
+	do {
 		foreach(ref i, c; children) {
 			if(c is where) {
 				i++;
@@ -1631,7 +1631,7 @@ class Element {
 				assert(child.parentDocument is this.parentDocument);
 			}
 		}
-	body {
+	do {
 		foreach(c; e.children) {
 			c.parentNode = this;
 			c.parentDocument = this.parentDocument;
@@ -1666,7 +1666,7 @@ class Element {
 			assert(e.parentDocument is this.parentDocument);
 			assert(children[0] is e);
 		}
-	body {
+	do {
 		e.parentNode = this;
 		e.parentDocument = this.parentDocument;
 		children = e ~ children;
@@ -1792,7 +1792,7 @@ class Element {
 			assert(replace.parentDocument is this.parentDocument);
 			assert(find.parentNode is null);
 		}
-	body {
+	do {
 		for(int i = 0; i < children.length; i++) {
 			if(children[i] is find) {
 				replace.parentNode = this;
@@ -1825,7 +1825,7 @@ class Element {
 			debug foreach(r; replace)
 				assert(r.parentNode is this);
 		}
-	body {
+	do {
 		if(replace.length == 0) {
 			removeChild(find);
 			return;
@@ -1865,7 +1865,7 @@ class Element {
 				assert(child !is c);
 			assert(c.parentNode is null);
 		}
-	body {
+	do {
 		foreach(i, e; children) {
 			if(e is c) {
 				children = children[0..i] ~ children [i+1..$];
@@ -1884,7 +1884,7 @@ class Element {
 			debug foreach(r; ret)
 				assert(r.parentNode is null);
 		}
-	body {
+	do {
 		Element[] oldChildren = children.dup;
 		foreach(c; oldChildren)
 			c.parentNode = null;
@@ -1949,7 +1949,7 @@ class Element {
 			assert(ret.children.length == this.children.length, format("%d %d", ret.children.length, this.children.length));
 			assert(ret.tagName == this.tagName);
 		}
-	body {
+	do {
 	+/
 	{
 		auto e = Element.make(this.tagName);
@@ -3241,7 +3241,7 @@ class Table : Element {
 				);
 			}
 		}
-	body {
+	do {
 		if(tablePortition is null)
 			tablePortition = this;
 
@@ -3278,7 +3278,7 @@ class Table : Element {
 			return position;
 		}
 
-		foreach(int i, rowElement; rows) {
+		foreach(size_t i, rowElement; rows) {
 			auto row = cast(TableRow) rowElement;
 			assert(row !is null);
 			assert(i < ret.length);
@@ -3295,7 +3295,7 @@ class Table : Element {
 				foreach(int j; 0 .. cell.colspan) {
 					foreach(int k; 0 .. cell.rowspan)
 						// if the first row, always append.
-						insertCell(k + i, k == 0 ? -1 : position, cell);
+						insertCell(cast(int)(k + i), k == 0 ? -1 : position, cell);
 					position++;
 				}
 			}
@@ -4438,7 +4438,7 @@ class Document : FileResource {
 	final SomeElementType requireElementById(SomeElementType = Element)(string id, string file = __FILE__, size_t line = __LINE__)
 		if( is(SomeElementType : Element))
 		out(ret) { assert(ret !is null); }
-	body {
+	do {
 		return root.requireElementById!(SomeElementType)(id, file, line);
 	}
 
@@ -4446,7 +4446,7 @@ class Document : FileResource {
 	final SomeElementType requireSelector(SomeElementType = Element)(string selector, string file = __FILE__, size_t line = __LINE__)
 		if( is(SomeElementType : Element))
 		out(ret) { assert(ret !is null); }
-	body {
+	do {
 		return root.requireSelector!(SomeElementType)(selector, file, line);
 	}
 
@@ -4518,7 +4518,7 @@ class Document : FileResource {
 		out(ret) {
 			assert(ret !is null);
 		}
-	body {
+	do {
 		return cast(Form) createElement("form");
 	}
 
