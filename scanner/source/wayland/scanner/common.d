@@ -337,7 +337,7 @@ abstract class Arg
         enforce(!nullable || isNullable(type));
     }
 
-    @property string dType() const
+    abstract @property string dType() const
     {
         final switch(type) {
             case ArgType.Int:
@@ -350,7 +350,7 @@ abstract class Arg
             case ArgType.String:
                 return "string";
             case ArgType.NewId:
-                return "wl_proxy*";
+                assert(false, "must be implemented in subclasses");
             case ArgType.Array:
                 return "wl_array*"; // ?? let's check this later
             case ArgType.Fd:
@@ -360,7 +360,7 @@ abstract class Arg
         }
     }
 
-    @property string cType() const
+    abstract @property string cType() const
     {
         final switch(type) {
             case ArgType.Int:
@@ -374,7 +374,7 @@ abstract class Arg
             case ArgType.Object:
                 assert(false, "unimplemented");
             case ArgType.NewId:
-                return "wl_proxy*";
+                assert(false, "must be implemented in subclasses");
             case ArgType.Array:
                 return "wl_array*";
             case ArgType.Fd:
