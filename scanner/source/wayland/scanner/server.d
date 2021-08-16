@@ -65,10 +65,11 @@ class ServerArg : Arg
             case ArgType.UInt:
             case ArgType.Fixed:
             case ArgType.String:
-            case ArgType.NewId:
             case ArgType.Array:
             case ArgType.Fd:
                 return Arg.dType;
+            case ArgType.NewId:
+                return "uint";
             case ArgType.Object:
                 if (iface.length)
                 {
@@ -81,6 +82,22 @@ class ServerArg : Arg
                     }
                 }
                 return "WlResource";
+        }
+    }
+
+    override @property string cType() const
+    {
+        final switch(type) {
+            case ArgType.Int:
+            case ArgType.UInt:
+            case ArgType.Fixed:
+            case ArgType.String:
+            case ArgType.Array:
+            case ArgType.Fd:
+            case ArgType.Object:
+                return Arg.cType;
+            case ArgType.NewId:
+                return "uint";
         }
     }
 

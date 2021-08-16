@@ -64,6 +64,22 @@ class ClientArg : Arg
         }
     }
 
+    override @property string cType() const
+    {
+        final switch(type) {
+            case ArgType.Int:
+            case ArgType.UInt:
+            case ArgType.Fixed:
+            case ArgType.String:
+            case ArgType.Array:
+            case ArgType.Fd:
+            case ArgType.Object:
+                return Arg.cType;
+            case ArgType.NewId:
+                return "wl_proxy*";
+        }
+    }
+
     override @property string cCastExpr() const
     {
         final switch(type) {
