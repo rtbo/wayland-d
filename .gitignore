@@ -12,3 +12,4 @@ examples/connect/wayland_connect
 examples/hello/wayland_hello
 examples/list_registry/wayland_list_registry
 examples/simple_egl/wayland_simple_egl
+examples/compositor/wayland_compositor
