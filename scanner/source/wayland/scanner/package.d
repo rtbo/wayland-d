@@ -1,4 +1,4 @@
-// Copyright © 2017 Rémi Thebault
+// Copyright © 2017-2021 Rémi Thebault
 /++
  +  Wayland scanner for D.
  +  Scan wayland XML protocol and generates client or server code for that protocol.

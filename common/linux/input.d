@@ -1,5 +1,5 @@
 /// bindings to /usr/include/linux/input-event-codes.h
-/// Copyright © 2017 Rémi Thebault
+/// Copyright © 2017-2021 Rémi Thebault
 module linux.input;
 /*
  * Input event codes

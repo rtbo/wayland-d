@@ -5,7 +5,7 @@ Foundation.
 
 Wayland-d copyright:
 
-Copyright © 2017 Rémi THEBAULT
+Copyright © 2017-2021 Rémi THEBAULT
 
 
 MIT license (all code except common/linux/input.d):
