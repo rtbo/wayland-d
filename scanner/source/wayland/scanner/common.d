@@ -16,6 +16,7 @@ import std.exception;
 import std.format;
 import std.range;
 import std.stdio;
+import std.string;
 import std.typecons;
 import std.uni;
 
@@ -233,6 +234,8 @@ class EnumEntry
     {
         if (summary.length)
         {
+            summary = replace(summary, "\n", " ");
+            summary = tr(summary, " ", " ", "s");
             sf.writeln("/// %s", summary);
         }
         sf.writeln(
