@@ -198,26 +198,22 @@ abstract class WlDisplayBase : WlProxy, Native!wl_display
 abstract class WlProxy
 {
     private wl_proxy* _proxy;
-
-    private static WlProxy[wl_proxy*] proxyCache;
+    private void* _userData;
 
     protected this(wl_proxy* proxy)
     {
         _proxy = proxy;
-        proxyCache[proxy] = this;
+        wl_proxy_set_user_data(proxy, cast(void*) this);
     }
 
     protected void destroyNotify()
     {
-        proxyCache.remove(_proxy);
         _proxy = null;
     }
 
     static WlProxy get(wl_proxy* proxy)
     {
-        auto pp = proxy in proxyCache;
-        if (pp) return *pp;
-        else return null;
+        return cast(WlProxy) wl_proxy_get_user_data(proxy);
     }
 
     final @property inout(wl_proxy)* proxy() inout
@@ -242,6 +238,16 @@ abstract class WlProxy
     {
         import std.string : fromStringz;
         return fromStringz(wl_proxy_get_class(proxy)).idup;
+    }
+
+    final @property void userData(void* value)
+    {
+        _userData = value;
+    }
+
+    final @property void* userData()
+    {
+        return _userData;
     }
 }
 

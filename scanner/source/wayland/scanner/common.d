@@ -898,6 +898,7 @@ string validDName(in string name) pure
 {
     switch (name)
     {
+        case "alias": return "alias_";
         case "class": return "class_";
         case "default": return "default_";
         case "interface": return "iface";
