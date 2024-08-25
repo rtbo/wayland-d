@@ -1,6 +1,8 @@
 // Copyright © 2017-2021 Rémi Thebault
 module wayland.client.core;
 
+import core.memory : GC;
+
 import wayland.client.protocol : WlDisplay;
 import wayland.native.client;
 import wayland.native.util;
@@ -203,12 +205,17 @@ abstract class WlProxy
     protected this(wl_proxy* proxy)
     {
         _proxy = proxy;
-        wl_proxy_set_user_data(proxy, cast(void*) this);
+        void* thisHandle = cast(void*) this;
+        wl_proxy_set_user_data(proxy, thisHandle);
+        GC.addRoot(thisHandle);
+        GC.setAttr(thisHandle, GC.BlkAttr.NO_MOVE);
     }
 
     protected void destroyNotify()
     {
         _proxy = null;
+        // destroy(this); // HACK no destructor is implemented so we can skip that.
+        GC.free(cast(void*) this);
     }
 
     static WlProxy get(wl_proxy* proxy)
