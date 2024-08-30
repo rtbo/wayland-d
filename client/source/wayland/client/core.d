@@ -1,6 +1,8 @@
 // Copyright © 2017-2021 Rémi Thebault
 module wayland.client.core;
 
+import core.memory : GC;
+
 import wayland.client.protocol : WlDisplay;
 import wayland.native.client;
 import wayland.native.util;
@@ -198,26 +200,27 @@ abstract class WlDisplayBase : WlProxy, Native!wl_display
 abstract class WlProxy
 {
     private wl_proxy* _proxy;
-
-    private static WlProxy[wl_proxy*] proxyCache;
+    private void* _userData;
 
     protected this(wl_proxy* proxy)
     {
         _proxy = proxy;
-        proxyCache[proxy] = this;
+        void* thisHandle = cast(void*) this;
+        wl_proxy_set_user_data(proxy, thisHandle);
+        GC.addRoot(thisHandle);
+        GC.setAttr(thisHandle, GC.BlkAttr.NO_MOVE);
     }
 
     protected void destroyNotify()
     {
-        proxyCache.remove(_proxy);
         _proxy = null;
+        // destroy(this); // HACK no destructor is implemented so we can skip that.
+        GC.free(cast(void*) this);
     }
 
     static WlProxy get(wl_proxy* proxy)
     {
-        auto pp = proxy in proxyCache;
-        if (pp) return *pp;
-        else return null;
+        return cast(WlProxy) wl_proxy_get_user_data(proxy);
     }
 
     final @property inout(wl_proxy)* proxy() inout
@@ -242,6 +245,16 @@ abstract class WlProxy
     {
         import std.string : fromStringz;
         return fromStringz(wl_proxy_get_class(proxy)).idup;
+    }
+
+    final @property void userData(void* value)
+    {
+        _userData = value;
+    }
+
+    final @property void* userData()
+    {
+        return _userData;
     }
 }
 

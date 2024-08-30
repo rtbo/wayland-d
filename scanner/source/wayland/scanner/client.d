@@ -259,7 +259,7 @@ class ClientMessage : Message
         sf.writeFnBody([],
             "auto _pp = wl_proxy_marshal_constructor", exprs,
             [   "if (!_pp) return null;",
-                "auto _p = WlProxy.get(_pp);",
+                "auto _p = wl_proxy_get_user_data(_pp);",
                 format("if (_p) return cast(%s)_p;", reqRetStr),
                 format("return new %s(_pp);", reqRetStr)    ]
         );
@@ -289,8 +289,8 @@ class ClientMessage : Message
         sf.writeFnBody([],
             "auto _pp = wl_proxy_marshal_constructor_versioned", exprs,
             [   "if (!_pp) return null;",
-                "auto _p = WlProxy.get(_pp);",
-                "if (_p) return _p;",
+                "auto _p = wl_proxy_get_user_data(_pp);",
+                "if (_p) return cast(WlProxy)_p;",
                 "return iface.makeProxy(_pp);"  ]
         );
     }
@@ -326,8 +326,8 @@ class ClientMessage : Message
         sf.bracedBlock!({
             sf.writeln("nothrowFnWrapper!({");
             sf.indentedBlock!({
-                sf.writeln("auto _p = WlProxy.get(proxy);");
-                sf.writeln("assert(_p, \"listener stub without proxy\");");
+                sf.writeln("auto _p = data;");
+                sf.writeln("assert(_p, \"listener stub without the right userdata\");");
                 sf.writeln("auto _i = cast(%s)_p;", ifaceDName(ifaceName));
                 sf.writeln("assert(_i, \"listener stub proxy is not %s\");", ifaceDName(ifaceName));
                 sf.writeln("if (_i._%s)", dHandlerName);
@@ -393,7 +393,7 @@ class ClientInterface : Interface
                 if (writeEvents)
                 {
                     sf.writeln(
-                        "wl_proxy_add_listener(proxy, cast(void_func_t*)&%s, null);",
+                        "wl_proxy_add_listener(proxy, cast(void_func_t*)&%s, cast(void*) this);",
                         globalNativeListenerName
                     );
                 }
