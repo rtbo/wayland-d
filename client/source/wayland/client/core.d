@@ -28,8 +28,9 @@ class WlEventQueue : Native!wl_event_queue
  + the wl_display singleton object.
  +
  + A WlDisplay object represents a client connection to a Wayland
- + compositor. It is created with either WlDisplay.connect() or
- + WlDisplay.connect_to_fd(). A connection is terminated using disconnect().
+ + compositor. It is created with either WlDisplay.connect(), 
+ + WlDisplay.connectToFd() or WlDisplay.fromNative().
+ + A connection is terminated using disconnect().
  +
  + A WlDisplay is also used as the WlProxy for the wl_display
  + singleton object on the compositor side.
@@ -100,6 +101,16 @@ abstract class WlDisplayBase : WlProxy, Native!wl_display
     {
         auto nativeDpy = wl_display_connect_to_fd(fd);
         return nativeDpy ? new WlDisplay(nativeDpy) : null;
+    }
+
+    /++
+     +  Construct a WlDisplay from a native handle.
+     +  Useful for interaction with 3rd party libraries (e.g. GLFW)
+     +  that handle the connection.
+     +/ 
+    static WlDisplay fromNative(wl_display* nativeDpy)
+    {
+        return new WlDisplay(nativeDpy);
     }
 
     final override @property inout(wl_display)* native() inout
