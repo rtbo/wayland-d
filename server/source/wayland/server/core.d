@@ -147,6 +147,11 @@ class WlDisplayBase : Native!wl_display
         return _clients;
     }
 
+    void setDefaultMaxBufferSize(size_t maxBufferSize)
+    {
+        wl_display_set_default_max_buffer_size(native, maxBufferSize);
+    }
+
     void initShm()
     {
         wl_display_init_shm(native);

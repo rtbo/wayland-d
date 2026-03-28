@@ -109,6 +109,7 @@ version(WlDynamic)
             bindFunc( cast( void** )&wl_log_set_handler_server, "wl_log_set_handler_server" );
             bindFunc( cast( void** )&wl_display_add_protocol_logger, "wl_display_add_protocol_logger" );
             bindFunc( cast( void** )&wl_protocol_logger_destroy, "wl_protocol_logger_destroy" );
+            bindFunc( cast( void** )&wl_display_set_default_max_buffer_size, "wl_display_set_default_max_buffer_size" );
 
             bindFunc( cast( void** )&wl_list_init, "wl_list_init" );
             bindFunc( cast( void** )&wl_list_insert, "wl_list_insert" );

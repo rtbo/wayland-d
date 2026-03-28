@@ -375,6 +375,8 @@ version(WlDynamic)
         alias da_wl_display_add_protocol_logger = wl_protocol_logger* function (wl_display* display, wl_protocol_logger_func_t, void* user_data);
 
         alias da_wl_protocol_logger_destroy = void function (wl_protocol_logger* logger);
+
+        alias da_wl_display_set_default_max_buffer_size = void function (wl_display* display, size_t max_buffer_size);
     }
 
     __gshared
@@ -466,6 +468,7 @@ version(WlDynamic)
         da_wl_log_set_handler_server wl_log_set_handler_server;
         da_wl_display_add_protocol_logger wl_display_add_protocol_logger;
         da_wl_protocol_logger_destroy wl_protocol_logger_destroy;
+        da_wl_display_set_default_max_buffer_size wl_display_set_default_max_buffer_size;
     }
 }
 
@@ -647,6 +650,8 @@ version(WlStatic)
         wl_protocol_logger* wl_display_add_protocol_logger(wl_display* display, wl_protocol_logger_func_t, void* user_data);
 
         void wl_protocol_logger_destroy(wl_protocol_logger* logger);
+
+        void wl_display_set_default_max_buffer_size(wl_display* display, size_t max_buffer_size);
     }
 }
 
